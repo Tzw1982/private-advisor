@@ -1,0 +1,19 @@
+name: advisor_storage
+description: 私人顾问团存储层（纯 Dart）：SQLite 仓储实现 + schema + 组装函数。不依赖 Flutter。
+version: 1.3.0
+publish_to: none
+
+environment:
+  sdk: ">=3.6.0 <4.0.0"
+
+dependencies:
+  # 领域层与应用层端口/模型（Domain + Application，纯 Dart）
+  advisor_core:
+    path: ../advisor_core
+
+  # 纯 Dart SQLite 绑定（dart:ffi）。
+  # 禁止引入 sqlite3_flutter_libs 或任何 Flutter 包，否则失去"纯 Dart 可验证"的意义。
+  sqlite3: ^2.4.6
+
+dev_dependencies:
+  test: ^1.25.0

@@ -404,7 +404,7 @@ class _GroupSettingsViewState extends State<GroupSettingsView> {
           decoration: const InputDecoration(
             isDense: true,
             border: OutlineInputBorder(),
-            hintText: '例如：本群只服务招投标项目，无关话题一律不参与。',
+            hintText: '例如：本群只服务商务合规项目，无关话题一律不参与。',
             hintStyle: TextStyle(fontSize: 12),
           ),
         ),

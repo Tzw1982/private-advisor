@@ -119,8 +119,8 @@ Future<void> _verifyRenameSuccess() async {
   checkEq('前置：createBase 落名', base.name, '原始知识库');
 
   // —— 改名成功 ——
-  final renamed = await env.knowledge.renameBase(base.id, '消防车规格库');
-  checkEq('返回值已是新名', renamed.name, '消防车规格库');
+  final renamed = await env.knowledge.renameBase(base.id, '工程车规格库');
+  checkEq('返回值已是新名', renamed.name, '工程车规格库');
   checkEq('id 不变', renamed.id, base.id);
   checkEq('type 不变（默认 local_folder）', renamed.type, 'local_folder');
   checkEq('createdAt 不变', renamed.createdAt, base.createdAt);
@@ -129,10 +129,10 @@ Future<void> _verifyRenameSuccess() async {
 
   // —— 持久化可读回：getBase / listBases 双通道 ——
   final readBack = await env.knowledge.getBase(base.id);
-  checkEq('getBase 读回新名（持久化）', readBack?.name, '消防车规格库');
+  checkEq('getBase 读回新名（持久化）', readBack?.name, '工程车规格库');
   final listed = await env.knowledge.listBases();
   checkEq('listBases 读回新名（持久化）',
-      listed.where((b) => b.id == base.id).first.name, '消防车规格库');
+      listed.where((b) => b.id == base.id).first.name, '工程车规格库');
   checkEq('listBases 条数不变（未误建新库）', listed.length, 1);
 
   // —— trim：首尾空白被去掉 ——

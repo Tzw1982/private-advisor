@@ -56,8 +56,8 @@ for r in c.execute('select id, name, avatar_path from experts order by created_a
 | `e_mupgta7u_09tu0vj003` | UI 设计师 | violet→blue |
 | `e_mupgugyv_1g05y4b005` | 前端开发者 | blue→cyan |
 | `e_mupgv1ew_0q9r7no007` | 后端架构师 | indigo→slate |
-| `e_mupgvtuc_0l0et7w009` | 投标标书专家 | amber→orange |
-| `e_mupgwfbg_1ed6zfg00b` | 招标文件解读专家 | green→teal |
+| `e_mupgvtuc_0l0et7w009` | 商务标书专家 | amber→orange |
+| `e_mupgwfbg_1ed6zfg00b` | 长篇文档解读专家 | green→teal |
 | `e_mupjbwsf_1ucyrek001` | 技术规格专家 | steel-blue→gray |
 
 ---

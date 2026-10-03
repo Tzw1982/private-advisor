@@ -83,7 +83,7 @@ class _GroupsTabState extends State<GroupsTab> {
   // -------------------------------------------------------------------------
 
   Future<void> _createGroup() async {
-    final name = await _promptText('新建分组', '分组名称', '例如：投标顾问组');
+    final name = await _promptText('新建分组', '分组名称', '例如：商务顾问组');
     if (name == null || name.trim().isEmpty) return;
     await _guard(() async {
       final g = await widget.experts.createGroup(name);

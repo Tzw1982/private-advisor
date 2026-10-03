@@ -397,8 +397,8 @@ Future<void> _c_linkAndRescan() async {
       .upsertBase(KnowledgeBase(id: 'kbC1', name: 'C1', createdAt: 1, updatedAt: 1));
 
   final dir = _p('C1/folder');
-  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n水罐容积六千升');
-  _writeFile('$dir${Platform.pathSeparator}b.md', '# B\n消防泵额定流量');
+  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n油箱容积六千升');
+  _writeFile('$dir${Platform.pathSeparator}b.md', '# B\n液压泵额定流量');
 
   Object? e1;
   try {
@@ -432,14 +432,14 @@ Future<void> _c_linkAndRescan() async {
   t('C1.8', '无变化：unchangedCount=2', 2, plan2.unchangedCount);
 
   await Future<void>.delayed(const Duration(milliseconds: 5));
-  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n水罐容积九千升（已改）');
+  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n油箱容积九千升（已改）');
   final plan3 = await sync.planRescan(folder.id);
   t('C1.9', '内容变化 → updated=1', 1, plan3.updated.length);
   final s3 = await sync.rescan(folder.id, confirmDeletes: true);
   t('C1.10', '更新执行后 updated=1', 1, s3.updated);
   t('C1.11', '更新后文档总数不变（=2，旧删新入）', 2, _countDocRows(db, kb: 'kbC1'));
 
-  _writeFile('$dir${Platform.pathSeparator}c.md', '# C\n举高喷射臂架');
+  _writeFile('$dir${Platform.pathSeparator}c.md', '# C\n长臂喷射臂架');
   final s4 = await sync.rescan(folder.id);
   t('C1.12', '新文件 added=1', 1, s4.added);
   t('C1.13', '文档总数=3', 3, _countDocRows(db, kb: 'kbC1'));
@@ -458,7 +458,7 @@ Future<void> _c_deleteDefenses() async {
 
   final dir = _p('C2/folder');
   for (final n in ['a', 'b', 'c', 'd']) {
-    _writeFile('$dir${Platform.pathSeparator}$n.md', '# $n\n内容 $n 水罐消防车');
+    _writeFile('$dir${Platform.pathSeparator}$n.md', '# $n\n内容 $n 油箱工程车');
   }
   final folder = await sync.linkFolder('kbC2', dir);
   await sync.rescan(folder.id);
@@ -530,8 +530,8 @@ Future<void> _c_orphansAndUnlink() async {
       .upsertBase(KnowledgeBase(id: 'kbC3', name: 'C3', createdAt: 1, updatedAt: 1));
 
   final dir = _p('C3/folder');
-  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n水罐六千升');
-  _writeFile('$dir${Platform.pathSeparator}b.md', '# B\n消防泵流量');
+  _writeFile('$dir${Platform.pathSeparator}a.md', '# A\n油箱六千升');
+  _writeFile('$dir${Platform.pathSeparator}b.md', '# B\n液压泵流量');
   final folder = await sync.linkFolder('kbC3', dir);
   await sync.rescan(folder.id);
   t('C3.1', '前置：2 篇 folder 文档', 2, _countDocRows(db, folderId: folder.id));
@@ -567,8 +567,8 @@ Future<void> _c_orphansAndUnlink() async {
   t('C3.10', 'unlink(keep) 后无 folder 文档', 0, _countDocRows(db, folderId: folder.id));
 
   final dir2 = _p('C3/folder2');
-  _writeFile('$dir2${Platform.pathSeparator}x.md', '# X\n举高喷射臂架系统');
-  _writeFile('$dir2${Platform.pathSeparator}y.md', '# Y\n水罐容积参数');
+  _writeFile('$dir2${Platform.pathSeparator}x.md', '# X\n长臂喷射臂架系统');
+  _writeFile('$dir2${Platform.pathSeparator}y.md', '# Y\n油箱容积参数');
   final folder2 = await sync.linkFolder('kbC3', dir2);
   await sync.rescan(folder2.id);
   final delDocs = await repos.knowledge.listDocumentsByFolder(folder2.id);
@@ -612,7 +612,7 @@ Future<void> _c_backfill() async {
       .upsertBase(KnowledgeBase(id: 'kbC4', name: 'C4', createdAt: 1, updatedAt: 1));
 
   final dir = _p('C4/folder');
-  _writeFile('$dir${Platform.pathSeparator}present.md', '# P\n在位文件水罐');
+  _writeFile('$dir${Platform.pathSeparator}present.md', '# P\n在位文件油箱');
   final folder = await sync.linkFolder('kbC4', dir);
 
   await repos.knowledge.upsertDocument(KnowledgeDocument(

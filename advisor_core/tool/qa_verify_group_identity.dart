@@ -3,7 +3,7 @@
 /// 运行：`cd advisor_core && dart run tool/qa_verify_group_identity.dart`
 ///
 /// 背景（用户走查缺陷 → 主理人定位根因并修复）：
-/// 投标决策群里重新任命组长后，**招标文件解读专家的回复以 `【<总裁助理id>】` 开头、
+/// 商务决策群里重新任命组长后，**长篇文档解读专家的回复以 `【<总裁助理id>】` 开头、
 /// 自称"组长（我，总裁助理）"去分派任务**。DB 实测数据与角色判定完全正确
 /// （唯一组长 = 总裁助理），真根因是 `ContextManager.build` 把历史专家消息渲染成
 /// `【<expertId>】<content>` 塞进提示词 → 模型模仿该格式、把别人的 id/身份安到自己头上。
@@ -70,7 +70,7 @@ void section(String s) => stdout.writeln('\n── $s ────────�
 // 夹具
 // ---------------------------------------------------------------------------
 
-/// 取自用户机器 DB 的真实 expertId（招标决策群 `conv_muplhf0l_1bmijfq001`）：
+/// 取自用户机器 DB 的真实 expertId（长篇决策群 `conv_muplhf0l_1bmijfq001`）：
 /// 总裁助理（组长）与另一位专家的裸 id —— 正是"被模型冒领"的那类标识。
 const _leaderId = 'e_muqacf53_1hm33cz001';
 const _expertId = 'e_mupjbwsf_1ucyrek001';
@@ -106,7 +106,7 @@ Message _userMsg(String id, String content) => Message(
 List<Message> _history() => [
       _expertMsg('m1', _leaderId, '组长先定分工：张工评估技术标。'),
       _userMsg('m2', '继续，重点关注泵参数。'),
-      _expertMsg('m3', _expertId, '我来解读招标文件的技术条款。'),
+      _expertMsg('m3', _expertId, '我来解读长篇文档的技术条款。'),
       _expertMsg('m4', _thirdId, '合同付款节点有风险。'),
     ];
 
@@ -146,7 +146,7 @@ void _t_A_historyLabelUsesDisplayName() {
   section('A 历史发言标签 = 展示名（无裸 expertId）');
 
   final msgs = ContextManager.build(
-    systemPrompt: '你是招标文件解读专家。',
+    systemPrompt: '你是长篇文档解读专家。',
     userTask: '请重新分派本轮任务',
     recentMessages: _history(),
     nameOf: _nameOf,
@@ -162,7 +162,7 @@ void _t_A_historyLabelUsesDisplayName() {
   // A2–A4 没有任何一条 assistant content 泄漏 `e_` 开头的裸 id（根因正是它）
   t('A2', 'assistant content 不含总裁助理裸 id', false,
       allContent.contains(_leaderId));
-  t('A3', 'assistant content 不含招标专家裸 id', false,
+  t('A3', 'assistant content 不含长篇专家裸 id', false,
       allContent.contains(_expertId));
   t('A4', 'assistant content 不含第三条裸 id', false, allContent.contains(_thirdId));
 
@@ -319,7 +319,7 @@ void _t_D_blockHasSpeakerFormatRule() {
   section('D GroupPromptComposer.block 并入发言格式纪律');
 
   final blk = GroupPromptComposer.block(
-    selfName: '招标文件解读专家',
+    selfName: '长篇文档解读专家',
     role: MemberRole.member,
     leaderName: '张三',
   );
@@ -374,7 +374,7 @@ void _t_E_roleBlockNoRegression() {
   t('E2', 'roleBlock(leader) 含本人姓名（自认身份正确）', true, leader.contains('张三'));
 
   final member = GroupPromptComposer.roleBlock(
-    selfName: '招标文件解读专家',
+    selfName: '长篇文档解读专家',
     role: MemberRole.member,
     leaderName: '张三',
   );
@@ -430,14 +430,14 @@ Future<void> _t_F_e2ePromptPath() async {
   await repos.experts.upsertExpert(Expert(
       id: _leaderId,
       name: '张三',
-      systemPrompt: '你是投标决策顾问。',
+      systemPrompt: '你是商务决策顾问。',
       source: ExpertSource.local,
       createdAt: now,
       updatedAt: now));
   await repos.experts.upsertExpert(Expert(
       id: _expertId,
       name: '李四',
-      systemPrompt: '你是招标文件解读专家。',
+      systemPrompt: '你是长篇文档解读专家。',
       source: ExpertSource.local,
       createdAt: now,
       updatedAt: now));
@@ -446,7 +446,7 @@ Future<void> _t_F_e2ePromptPath() async {
   await repos.conversations.upsertConversation(Conversation(
       id: convId,
       type: ConversationType.group,
-      title: '投标决策群',
+      title: '商务决策群',
       createdAt: now,
       updatedAt: now));
   await repos.conversations.upsertMember(ConversationMember(
@@ -458,7 +458,7 @@ Future<void> _t_F_e2ePromptPath() async {
 
   // 复刻用户 DB 现场：群里已有一条李四（裸 id senderId）的历史专家消息。
   await repos.messages.insertMessage(
-      _expertMsg('m_prev', _expertId, '我来解读招标文件的技术条款。', conversationId: convId));
+      _expertMsg('m_prev', _expertId, '我来解读长篇文档的技术条款。', conversationId: convId));
 
   final experts = ExpertService(repos);
   final conversations = ConversationService(repos);
@@ -494,7 +494,7 @@ Future<void> _t_F_e2ePromptPath() async {
       note: 'calls=${scripted.calls.length}');
   t('F1.2', 'E2E：请求里历史专家消息以【李四】开头（展示名）', true,
       reqMessages.any((m) =>
-          m.role == ChatRole.assistant && m.content.startsWith('【李四】我来解读招标文件')),
+          m.role == ChatRole.assistant && m.content.startsWith('【李四】我来解读长篇文档')),
       note: 'assistant=${reqMessages.where((m) => m.role == ChatRole.assistant).map((m) => m.content).toList()}');
   t('F1.3', 'E2E：整个请求不含裸 expertId（根因标识零出现）', false,
       reqAll.contains(_expertId) || reqAll.contains(_leaderId));
@@ -522,7 +522,7 @@ Future<void> _t_F_e2ePromptPath() async {
   await repos2.experts.upsertExpert(Expert(
       id: _leaderId,
       name: '张三',
-      systemPrompt: '你是投标决策顾问。',
+      systemPrompt: '你是商务决策顾问。',
       source: ExpertSource.local,
       createdAt: now2,
       updatedAt: now2));

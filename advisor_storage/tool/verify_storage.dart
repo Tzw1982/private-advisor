@@ -121,16 +121,16 @@ Future<void> main() async {
   // 共享的临时源文件
   final sampleFile = File('${tmpDir.path}${Platform.pathSeparator}规格书.md');
   sampleFile.writeAsStringSync('''
-# 消防车技术规格书
+# 工程车技术规格书
 
 ## 3.2.1 车辆性能参数
 
 整车整备质量为 12000 kg，最大总质量 18000 kg，轴距 4500 mm，
-最高车速不低于 100 km/h，水罐容积 6000 L。
+最高车速不低于 100 km/h，油箱容积 6000 L。
 
-## 3.2.2 消防泵参数
+## 3.2.2 液压泵参数
 
-消防泵额定流量 60 L/s，额定压力 1.0 MPa，最大吸深 7 m。
+液压泵额定流量 60 L/s，额定压力 1.0 MPa，最大吸深 7 m。
 ''');
 
   await _verifyKnowledge(knowledge, repos, sampleFile);
@@ -405,7 +405,7 @@ Future<void> _verifyAttachmentsV6(Directory tmpDir) async {
   final sha2 = '5555eeee6666ffff7777aaaa8888bbbb';
   await reposA.attachments.insertAttachments([
     _attachmentFixture(id: 'r1', messageId: 'msg_r1', sha256: sha1),
-    _attachmentFixture(id: 'r2', messageId: 'msg_r1', sha256: sha2, fileName: '招标文件.pdf'),
+    _attachmentFixture(id: 'r2', messageId: 'msg_r1', sha256: sha2, fileName: '长篇文档.pdf'),
     _attachmentFixture(id: 'r3', messageId: 'msg_r2', sha256: sha1, fileName: '示意图 副本.png'),
   ]);
 
@@ -1140,12 +1140,12 @@ CREATE TABLE IF NOT EXISTS group_configs (
   ));
   await repos.conversations.upsertGroupConfig(GroupConfig(
     conversationId: 'cg_v5',
-    announcement: '本群只为招投标项目服务。',
+    announcement: '本群只为商务合规项目服务。',
     announcementUpdatedAt: 1700000000000,
     maxSpeakersPerRound: 2,
   ));
   final cfg = await repos.conversations.getGroupConfig('cg_v5');
-  checkEq('新列 roundtrip：announcement', cfg?.announcement, '本群只为招投标项目服务。');
+  checkEq('新列 roundtrip：announcement', cfg?.announcement, '本群只为商务合规项目服务。');
   checkEq('新列 roundtrip：announcementUpdatedAt', cfg?.announcementUpdatedAt, 1700000000000);
   checkEq('新列 roundtrip：maxSpeakersPerRound', cfg?.maxSpeakersPerRound, 2);
   // 未设新列的旧行：NULL 透传（服务层再兜底为默认 3）。
@@ -1278,17 +1278,17 @@ Future<void> _verifyFts(Database db, Repositories repos) async {
   ));
   final chunks = [
     KnowledgeChunk(
-        id: 'fc1', documentId: 'doc_f', text: '消防车举高喷射臂架系统', sequence: 0, chunkHash: 'h1'),
+        id: 'fc1', documentId: 'doc_f', text: '工程车长臂喷射臂架系统', sequence: 0, chunkHash: 'h1'),
     KnowledgeChunk(
-        id: 'fc2', documentId: 'doc_f', text: '水罐消防车泵系统额定流量', sequence: 1, chunkHash: 'h2'),
+        id: 'fc2', documentId: 'doc_f', text: '油箱工程车液压系统额定流量', sequence: 1, chunkHash: 'h2'),
   ];
   await repos.knowledge.insertChunks(chunks);
   await rt.indexChunks(chunks, knowledgeBaseId: 'kb_f', documentId: 'doc_f');
   checkEq('索引写入行数 = 分块数', ftsRowCount(db), 2);
 
   // —— 回归：「批量不再返回 0」（源自古 fts_probe2 的尾单字 + AND 缺陷场景）——
-  final hits = await rt.search('举高', knowledgeBaseIds: ['kb_f'], topK: 5);
-  check('查 “举高” 命中 ≥1（批量不再返回 0）', hits.isNotEmpty, 'hits=${hits.length}');
+  final hits = await rt.search('长臂', knowledgeBaseIds: ['kb_f'], topK: 5);
+  check('查 “长臂” 命中 ≥1（批量不再返回 0）', hits.isNotEmpty, 'hits=${hits.length}');
   check('命中首块为 fc1', hits.isNotEmpty && hits.first.chunk.id == 'fc1');
   check('score = coverage ∈ (0,1]',
       hits.isNotEmpty && hits.first.score > 0 && hits.first.score <= 1,
@@ -1297,8 +1297,8 @@ Future<void> _verifyFts(Database db, Repositories repos) async {
   final hitsFlow = await rt.search('流量', knowledgeBaseIds: ['kb_f']);
   check('查 “流量” 命中 fc2', hitsFlow.any((h) => h.chunk.id == 'fc2'));
 
-  // coverage 排序：「水罐消防车」应使 fc2 覆盖率高于 fc1
-  final ranked = await rt.search('水罐消防车', knowledgeBaseIds: ['kb_f']);
+  // coverage 排序：「油箱工程车」应使 fc2 覆盖率高于 fc1
+  final ranked = await rt.search('油箱工程车', knowledgeBaseIds: ['kb_f']);
   check('coverage 排序：fc2 排在 fc1 之前',
       ranked.length >= 2 && ranked.first.chunk.id == 'fc2',
       'order=${ranked.map((h) => h.chunk.id).toList()}');
@@ -1308,18 +1308,18 @@ Future<void> _verifyFts(Database db, Repositories repos) async {
   check('单字 CJK 查询无结果（bigram 方案预期）', single.isEmpty);
 
   // 知识库过滤
-  final other = await rt.search('举高', knowledgeBaseIds: ['kb_none']);
+  final other = await rt.search('长臂', knowledgeBaseIds: ['kb_none']);
   check('KB 过滤：非本库无命中', other.isEmpty);
 
   // 阈值：覆盖率过滤（长多概念查询 + 高阈值 → 结果更少/为空）
-  final loose = await rt.search('消防车臂架流量', knowledgeBaseIds: ['kb_f'], threshold: 0.0);
-  final tight = await rt.search('消防车臂架流量', knowledgeBaseIds: ['kb_f'], threshold: 0.99);
+  final loose = await rt.search('工程车臂架流量', knowledgeBaseIds: ['kb_f'], threshold: 0.0);
+  final tight = await rt.search('工程车臂架流量', knowledgeBaseIds: ['kb_f'], threshold: 0.99);
   check('高阈值过滤后命中数不增加', tight.length <= loose.length,
       'loose=${loose.length} tight=${tight.length}');
 
   // 索引维护同步：删除文档后不再命中
   await rt.deleteByDocument('doc_f');
-  final after = await rt.search('举高', knowledgeBaseIds: ['kb_f']);
+  final after = await rt.search('长臂', knowledgeBaseIds: ['kb_f']);
   check('deleteByDocument 后不再命中', after.isEmpty);
   checkEq('删除后索引行数 = 0', ftsRowCount(db), 0);
 
@@ -1354,9 +1354,9 @@ Future<void> _verifyStartupBackfill(Database db, Repositories repos) async {
   ));
   await repos.knowledge.insertChunks([
     KnowledgeChunk(
-        id: 'bf1', documentId: 'doc_bf', text: '水罐消防车额定流量与压力', sequence: 0, chunkHash: 'b1'),
+        id: 'bf1', documentId: 'doc_bf', text: '油箱工程车额定流量与压力', sequence: 0, chunkHash: 'b1'),
     KnowledgeChunk(
-        id: 'bf2', documentId: 'doc_bf', text: '举高喷射臂架系统', sequence: 1, chunkHash: 'b2'),
+        id: 'bf2', documentId: 'doc_bf', text: '长臂喷射臂架系统', sequence: 1, chunkHash: 'b2'),
   ]);
 
   // 模拟"FTS 被清空"：直接清表（chunks 仍在 knowledge_chunks 中）。

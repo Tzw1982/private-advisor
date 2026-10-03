@@ -65,10 +65,10 @@ Message _userMsg(String content) => Message(
       updatedAt: 1,
     );
 
-/// 丰富夹具：组长 L（综合管理）+ 投标专家 A（投标/报价/资格条件）+ 医生 B（医学/诊疗）。
+/// 丰富夹具：组长 L（综合管理）+ 商务专家 A（商务/成本/资格条件）+ 医生 B（医学/诊疗）。
 final List<GroupMember> _richMembers = [
   const GroupMember(expertId: 'L', name: '组长', role: MemberRole.leader, sortOrder: 0, expertise: ['综合管理']),
-  const GroupMember(expertId: 'A', name: '投标专家', sortOrder: 1, expertise: ['投标', '报价', '资格条件']),
+  const GroupMember(expertId: 'A', name: '商务专家', sortOrder: 1, expertise: ['商务', '成本', '资格条件']),
   const GroupMember(expertId: 'B', name: '医生', sortOrder: 2, expertise: ['医学', '诊疗']),
 ];
 
@@ -121,14 +121,14 @@ Future<void> main() async {
 void _verifyTokenizerParity() {
   section('分词口径唯一性（ExpertiseTokenizer ≡ AutoStrategy.tokenize）');
 
-  const samples = ['招标文件', '消防车额定流量', 'ABC-123 报价', '组长', ''];
+  const samples = ['长篇文档', '工程车额定流量', 'ABC-123 成本', '组长', ''];
   for (final s in samples) {
     check('口径一致：「$s」',
         ExpertiseTokenizer.tokenize(s).join('|') == AutoStrategy.tokenize(s).join('|'),
         'expertise=${ExpertiseTokenizer.tokenize(s)} auto=${AutoStrategy.tokenize(s)}');
   }
-  final t = ExpertiseTokenizer.tokenize('招标文件');
-  check('中文逐字 + 2-gram', t.contains('招') && t.contains('招标') && t.contains('标文') && t.contains('文件'));
+  final t = ExpertiseTokenizer.tokenize('长篇文档');
+  check('中文逐字 + 2-gram', t.contains('长') && t.contains('长篇') && t.contains('篇文') && t.contains('文档'));
   check('拉丁/数字小写聚合', ExpertiseTokenizer.tokenize('ABC-123').containsAll({'abc', '123'}));
   check('空串 → 空集', ExpertiseTokenizer.tokenize('   ').isEmpty);
 }
@@ -140,13 +140,13 @@ void _verifyTokenizerParity() {
 void _verifyRelevanceScorer() {
   section('MemberRelevanceScorer（score / rank / relevantAbove）');
 
-  const a = GroupMember(expertId: 'A', name: '投标专家', sortOrder: 1, expertise: ['投标', '报价']);
+  const a = GroupMember(expertId: 'A', name: '商务专家', sortOrder: 1, expertise: ['商务', '成本']);
   const b = GroupMember(expertId: 'B', name: '医生', sortOrder: 2, expertise: ['医学', '诊疗']);
 
-  check('A 命中投标类标签 > 0', MemberRelevanceScorer.score('招标文件资格条件', a) > 0);
-  checkEq('B 不命中 → 0', MemberRelevanceScorer.score('招标文件资格条件', b), 0.0);
+  check('A 命中商务类标签 > 0', MemberRelevanceScorer.score('商务文档资格条件', a) > 0);
+  checkEq('B 不命中 → 0', MemberRelevanceScorer.score('商务文档资格条件', b), 0.0);
 
-  final ranked = MemberRelevanceScorer.rank('招标文件', [b, a]);
+  final ranked = MemberRelevanceScorer.rank('商务文档', [b, a]);
   checkEq('rank 降序（A 在前）', '${ranked[0].expertId}${ranked[1].expertId}', 'AB');
 
   // 同分按 sortOrder 升序
@@ -155,14 +155,14 @@ void _verifyRelevanceScorer() {
   final tie = MemberRelevanceScorer.rank('完全不相关', [d, c]);
   checkEq('同分按 sortOrder 升序', '${tie[0].expertId}${tie[1].expertId}', 'CD');
 
-  checkEq('relevantAbove 阈值过滤', MemberRelevanceScorer.relevantAbove('招标文件', [a, b]).length, 1);
+  checkEq('relevantAbove 阈值过滤', MemberRelevanceScorer.relevantAbove('商务文档', [a, b]).length, 1);
   checkEq('relevantAbove 全部不相关 → 空', MemberRelevanceScorer.relevantAbove('天气', [a, b]).length, 0);
 
   // 总结者 0.5 折扣
-  const sum = GroupMember(expertId: 'S', name: '总结者', role: MemberRole.summarizer, sortOrder: 3, expertise: ['投标']);
-  const plain = GroupMember(expertId: 'P', name: '普通', sortOrder: 4, expertise: ['投标']);
+  const sum = GroupMember(expertId: 'S', name: '总结者', role: MemberRole.summarizer, sortOrder: 3, expertise: ['商务']);
+  const plain = GroupMember(expertId: 'P', name: '普通', sortOrder: 4, expertise: ['商务']);
   check('总结者折扣（score 更低）',
-      MemberRelevanceScorer.score('投标', sum) < MemberRelevanceScorer.score('投标', plain));
+      MemberRelevanceScorer.score('商务', sum) < MemberRelevanceScorer.score('商务', plain));
 }
 
 // ---------------------------------------------------------------------------
@@ -197,16 +197,16 @@ void _verifyDirectiveResolver() {
   check('「各位都谈谈」→ 全体', d != null && d.isFullGroup);
 
   // ④ 点名 @
-  d = r('@投标专家 说说你的看法');
-  check('「@投标专家」→ A 必选', d != null && d.expertIds.contains('A'));
-  check('点名依据含专家名', d != null && d.reason.contains('投标专家'));
+  d = r('@商务专家 说说你的看法');
+  check('「@商务专家」→ A 必选', d != null && d.expertIds.contains('A'));
+  check('点名依据含专家名', d != null && d.reason.contains('商务专家'));
 
   // ④ 点名 名 + 动词
-  d = r('请投标专家来回答');
-  check('「请投标专家来回答」→ A', d != null && d.expertIds.contains('A'));
+  d = r('请商务专家来回答');
+  check('「请商务专家来回答」→ A', d != null && d.expertIds.contains('A'));
 
   // ④ 多个 @
-  d = r('@投标专家 @医生 都说说');
+  d = r('@商务专家 @医生 都说说');
   check('多个 @ 都入选', d != null && ['A', 'B'].every(d.expertIds.contains) && d.expertIds.length == 2);
 
   // ⑤ 未命中 → null
@@ -240,15 +240,15 @@ void _verifyPromptComposer() {
   final memberNoLeader = GroupPromptComposer.roleBlock(selfName: '李四', role: MemberRole.member);
   check('无组长时组员块提示「暂无组长」', memberNoLeader.contains('暂无组长'));
 
-  const announcement = '本群只为政府招投标项目提供建议，不参与私人事务。';
+  const announcement = '本群只为政府商务合规项目提供建议，不参与私人事务。';
   final cb = GroupPromptComposer.consensusBlock(announcement);
   check('公告块**逐字**含公告文本（硬契约）', cb.contains(announcement));
   checkEq('空公告 → 空串', GroupPromptComposer.consensusBlock(null), '');
   checkEq('空白公告 → 空串', GroupPromptComposer.consensusBlock('   '), '');
 
   final scopeFull = GroupPromptComposer.scopeBlock(
-      SpeakerDirective(expertIds: const ['A', 'B'], reason: '全体', isFullGroup: true), const ['投标专家', '医生']);
-  check('范围块（全体）含成员名', scopeFull.contains('投标专家') && scopeFull.contains('医生'));
+      SpeakerDirective(expertIds: const ['A', 'B'], reason: '全体', isFullGroup: true), const ['商务专家', '医生']);
+  check('范围块（全体）含成员名', scopeFull.contains('商务专家') && scopeFull.contains('医生'));
   final scopeOne = GroupPromptComposer.scopeBlock(
       SpeakerDirective(expertIds: const ['L'], reason: '仅组长'), const ['组长']);
   check('范围块（限定）含「仅由」+ 成员名', scopeOne.contains('仅') && scopeOne.contains('组长'));
@@ -259,14 +259,14 @@ void _verifyPromptComposer() {
   check('表达纪律存在', GroupPromptComposer.concisionRule.isNotEmpty);
 
   final block = GroupPromptComposer.block(
-    selfName: '投标专家',
+    selfName: '商务专家',
     role: MemberRole.member,
     leaderName: '组长',
     announcement: announcement,
     directive: SpeakerDirective(expertIds: const ['A'], reason: '点名'),
-    speakerNames: const ['投标专家'],
+    speakerNames: const ['商务专家'],
   );
-  check('聚合块含角色声明', block.contains('投标专家'));
+  check('聚合块含角色声明', block.contains('商务专家'));
   check('聚合块含公告', block.contains(announcement));
   check('聚合块含发言范围', block.contains('本轮发言范围'));
   check('聚合块含自判哨兵', block.contains(kNonParticipationToken));
@@ -274,7 +274,7 @@ void _verifyPromptComposer() {
   // 短回执
   check('「收到」识别为短回执', ShortAckDetector.isShortAck('收到'));
   check('「明白」识别为短回执', ShortAckDetector.isShortAck('明白'));
-  check('长文本不识别为短回执', !ShortAckDetector.isShortAck('收到，我这就详细说明投标策略的全部要点与风险'));
+  check('长文本不识别为短回执', !ShortAckDetector.isShortAck('收到，我这就详细说明商务策略的全部要点与风险'));
 }
 
 // ---------------------------------------------------------------------------
@@ -297,7 +297,7 @@ Future<void> _verifyLeaderLed() async {
   }
 
   // 断言 ①：问 A 专业的事（A 标签命中、B 不命中）→ A 入选、B 不入选。
-  var picked = await run('帮我看看招标文件的资格条件怎么响应');
+  var picked = await run('帮我看看长篇文档的资格条件怎么响应');
   check('断言① A 入选', picked.contains('A'), 'got=$picked');
   check('断言① B 不入选', !picked.contains('B'), 'got=$picked');
   check('断言① 组长先行（首位为 L）', picked.isNotEmpty && picked.first == 'L', 'got=$picked');
@@ -321,30 +321,30 @@ Future<void> _verifyLeaderLed() async {
 
   // 断言 ⑥：命中 5 人 + 上限 3 → 恰 3 人（Top-3 相关度）。
   final five = <GroupMember>[
-    const GroupMember(expertId: 'M1', name: '投标A', sortOrder: 0, expertise: ['投标']),
-    const GroupMember(expertId: 'M2', name: '报价B', sortOrder: 1, expertise: ['报价']),
+    const GroupMember(expertId: 'M1', name: '商务A', sortOrder: 0, expertise: ['商务']),
+    const GroupMember(expertId: 'M2', name: '成本B', sortOrder: 1, expertise: ['成本']),
     const GroupMember(expertId: 'M3', name: '法律C', sortOrder: 2, expertise: ['法律']),
     const GroupMember(expertId: 'M4', name: '医学D', sortOrder: 3, expertise: ['医学']),
     const GroupMember(expertId: 'M5', name: '财务E', sortOrder: 4, expertise: ['财务']),
   ];
-  picked = await run('投标 报价 法律 医学 财务', members: five, maxSpeakers: 3);
+  picked = await run('商务 成本 法律 医学 财务', members: five, maxSpeakers: 3);
   check('断言⑥ 恰 3 人', picked.length == 3, 'got=$picked');
   check('断言⑥ 命中的成员入选（子集）', picked.every((e) => ['M1', 'M2', 'M3', 'M4', 'M5'].contains(e)), 'got=$picked');
 
   // 断言 ⑥ 变体：含组长 + 4 命中 → 仍恰 3（含组长）。
   final withLeader = <GroupMember>[
     const GroupMember(expertId: 'L', name: '组长', role: MemberRole.leader, sortOrder: 0, expertise: ['无关']),
-    const GroupMember(expertId: 'M1', name: '投标A', sortOrder: 1, expertise: ['投标']),
-    const GroupMember(expertId: 'M2', name: '报价B', sortOrder: 2, expertise: ['报价']),
+    const GroupMember(expertId: 'M1', name: '商务A', sortOrder: 1, expertise: ['商务']),
+    const GroupMember(expertId: 'M2', name: '成本B', sortOrder: 2, expertise: ['成本']),
     const GroupMember(expertId: 'M3', name: '法律C', sortOrder: 3, expertise: ['法律']),
     const GroupMember(expertId: 'M4', name: '医学D', sortOrder: 4, expertise: ['医学']),
   ];
-  picked = await run('投标 报价 法律 医学', members: withLeader, maxSpeakers: 3);
+  picked = await run('商务 成本 法律 医学', members: withLeader, maxSpeakers: 3);
   check('断言⑥变体 含组长时仍恰 3', picked.length == 3, 'got=$picked');
   check('断言⑥变体 组长在列', picked.contains('L'), 'got=$picked');
 
   // 强制入选不被上限丢弃（用户 @ 两位 + 上限 2）。
-  picked = await run('@投标专家 @医生 都来', maxSpeakers: 2);
+  picked = await run('@商务专家 @医生 都来', maxSpeakers: 2);
   check('强制入选按上限保留（@A @B + cap2）', ['A', 'B'].every(picked.contains) && picked.length == 2, 'got=$picked');
 
   // 空成员 → none
@@ -388,14 +388,14 @@ void _verifyContextManager() {
       'style=$iStyle prompt=$iPrompt group=$iGroup');
 
   // 硬契约：公告（经 consensusBlock）逐字进入 system。
-  const ann = '本群只讨论招投标，无关话题一律不参与。';
+  const ann = '本群只讨论商务合规，无关话题一律不参与。';
   final gb = GroupPromptComposer.block(
-    selfName: '投标专家',
+    selfName: '商务专家',
     role: MemberRole.member,
     leaderName: '组长',
     announcement: ann,
     directive: SpeakerDirective(expertIds: const ['A'], reason: '点名'),
-    speakerNames: const ['投标专家'],
+    speakerNames: const ['商务专家'],
   );
   final withAnn = ContextManager.build(systemPrompt: '你是专家', groupBlocks: gb, userTask: '问题');
   final sys2 = withAnn.firstWhere((m) => m.role == ChatRole.system).content;

@@ -216,7 +216,7 @@ Future<_H> _build({
 
 /// 直接经仓储种入一条知识并绑定（绕过文件解析 I/O，确定性、独立）。
 Future<void> _seedKb(_H h) async {
-  const text = '消防车泵的流量计算：额定流量应不小于 60 升每秒，压力 1.0 兆帕。';
+  const text = '液压泵组的流量计算：额定流量应不小于 60 升每秒，压力 1.0 兆帕。';
   final base = await h.knowledge.createBase(name: '测试库');
   final doc = KnowledgeDocument(
     id: 'doc_q', knowledgeBaseId: base.id, fileName: '泵参数.txt',
@@ -396,7 +396,7 @@ Future<void> _c2_reasoningNotLeaked() async {
   t('C2.12', '真实结论保留', true, msg4.content.contains('这个方案可行'));
 
   // 2.13~2.14 保守：普通正文不被误删
-  const plain = '消防车举高喷射消防车最大工作高度为 60 米。';
+  const plain = '工程车长臂喷射工程车最大工作高度为 60 米。';
   t('C2.13', '普通正文原样保留', plain, ReasoningStripper.strip(plain).text);
   t('C2.14', '普通正文 changed=false', false, ReasoningStripper.strip(plain).changed);
 
@@ -415,7 +415,7 @@ Future<void> _c3_citations() async {
 
   final h = await _build(
       turns: [_reply('依据知识库，泵流量应大于 60L/s。')], grounding: 'preferred', seedKb: true);
-  final ups = await h.run('消防车泵流量');
+  final ups = await h.run('液压泵组流量');
   final finished = ups.whereType<StepFinishedUpdate>().single;
   final msg = (await h.expertMsgs()).single;
 
@@ -431,7 +431,7 @@ Future<void> _c3_citations() async {
 
   // 未绑定知识库 → 无引用（preferred 也照常回答）
   final h2 = await _build(turns: [_reply('无知识库也能回答。')], grounding: 'preferred');
-  final ups2 = await h2.run('消防车泵流量');
+  final ups2 = await h2.run('液压泵组流量');
   t('C3.7', '未绑定知识库 → 引用为空', 0,
       ups2.whereType<StepFinishedUpdate>().single.citations.length);
   t('C3.8', '未绑定知识库仍正常完成', RunStatus.completed,
@@ -613,7 +613,7 @@ Future<void> _c6_edges() async {
   t('C6.2', '空用户文本：专家消息落库', 1, (await h1.expertMsgs()).length);
 
   // 6.3 长用户文本
-  final long = '消防车泵参数说明。' * 400;
+  final long = '液压泵组参数说明。' * 400;
   final h2 = await _build(turns: [_reply('对长输入的回应。')]);
   final ups2 = await h2.run(long);
   t('C6.3', '长输入（>3000 字）：run 完成', RunStatus.completed,

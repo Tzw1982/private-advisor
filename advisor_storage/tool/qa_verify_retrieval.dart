@@ -135,7 +135,7 @@ Future<void> _r1_batch(Directory tmp, String sep, Directory src) async {
     ('评分办法还原', 'bid-tender-expert'),
     ('资格条件提取', 'bid-tender-expert'),
     ('逐条响应表', 'bid-proposal-expert'),
-    ('不平衡报价', 'bid-pricing-expert'),
+    ('不平衡成本', 'bid-pricing-expert'),
     ('价格分策略', 'bid-pricing-expert'),
     ('风险分级', 'contract-review-expert'),
     ('条款风险识别', 'contract-review-expert'),
@@ -197,11 +197,11 @@ Future<void> _r2_bigramRules() async {
       retr.contains(".join(' AND ')"));
 
   // —— 行为：纯函数规约 ——
-  t('R2.5', 'tokenize("举高") 只产 bigram、无尾单字', '[举高]', '${ChineseBigram.tokenize('举高')}');
-  t('R2.6', 'tokenize("消防车举高") 无尾单字"高"', '[消防, 防车, 车举, 举高]',
-      '${ChineseBigram.tokenize('消防车举高')}');
+  t('R2.5', 'tokenize("长臂") 只产 bigram、无尾单字', '[长臂]', '${ChineseBigram.tokenize('长臂')}');
+  t('R2.6', 'tokenize("工程车长臂") 无尾单字"臂"', '[工程, 程车, 车长, 长臂]',
+      '${ChineseBigram.tokenize('工程车长臂')}');
   t('R2.7', 'tokenize 尾字不单独成 token', false,
-      ChineseBigram.tokenize('消防车举高').contains('高'));
+      ChineseBigram.tokenize('工程车长臂').contains('臂'));
   t('R2.8', '单字 CJK 才产单 token', '[泵]', '${ChineseBigram.tokenize('泵')}');
   t('R2.9', '拉丁串小写整体成 token', '[mpa]', '${ChineseBigram.tokenize('MPa')}');
   t('R2.10', '数字含小数点整体成 token', '[1.0]', '${ChineseBigram.tokenize('1.0')}');
@@ -221,17 +221,17 @@ Future<void> _r2_bigramRules() async {
       id: 'd2', knowledgeBaseId: 'kb2', fileName: 'r2.md', filePath: '/r2', fileHash: 'R2',
       fileSize: 1, status: DocumentStatus.indexed, createdAt: now, updatedAt: now));
   const chunks = [
-    KnowledgeChunk(id: 'r2c1', documentId: 'd2', text: '火警举高喷射臂架系统', sequence: 1, chunkHash: 'x1'),
-    KnowledgeChunk(id: 'r2c2', documentId: 'd2', text: '水罐容积六千升', sequence: 2, chunkHash: 'x2'),
+    KnowledgeChunk(id: 'r2c1', documentId: 'd2', text: '火警长臂喷射臂架系统', sequence: 1, chunkHash: 'x1'),
+    KnowledgeChunk(id: 'r2c2', documentId: 'd2', text: '油箱容积六千升', sequence: 2, chunkHash: 'x2'),
   ];
   await repos.knowledge.insertChunks(chunks);
   await rt.indexChunks(chunks, knowledgeBaseId: 'kb2', documentId: 'd2');
 
-  final tail = await rt.search('举高', knowledgeBaseIds: ['kb2']);
-  t('R2.12', '“举高”命中（旧实现恒 0）', true, tail.isNotEmpty,
+  final tail = await rt.search('长臂', knowledgeBaseIds: ['kb2']);
+  t('R2.12', '“长臂”命中（旧实现恒 0）', true, tail.isNotEmpty,
       note: 'hits=${tail.length}');
-  final multi = await rt.search('举高喷射臂架', knowledgeBaseIds: ['kb2']);
-  t('R2.13', '“举高喷射臂架”命中', true, multi.isNotEmpty);
+  final multi = await rt.search('长臂喷射臂架', knowledgeBaseIds: ['kb2']);
+  t('R2.13', '“长臂喷射臂架”命中', true, multi.isNotEmpty);
   final single = await rt.search('高', knowledgeBaseIds: ['kb2']);
   t('R2.14', '单字“高”无命中（尾字未入索引，符合 bigram 取向）', true, single.isEmpty);
   db.dispose();
@@ -278,13 +278,13 @@ Future<void> _r4_degradation(Directory tmp, String sep) async {
       idxErr is StorageError ? idxErr.code : '${idxErr.runtimeType}');
 
   // search 在不可用时返回空（而非抛）——可接受，但 UI 需据 health/label 提示
-  final emptyHits = await rt.search('招标', knowledgeBaseIds: ['kbx']);
+  final emptyHits = await rt.search('长篇', knowledgeBaseIds: ['kbx']);
   t('R4.6', 'search 不可用时安全返回空', 0, emptyHits.length);
 
   // 服务层：不得静默降级为「无结果」
   Object? svcErr;
   try {
-    await svc.retrieve(query: '招标文件', knowledgeBaseIds: ['kbx']);
+    await svc.retrieve(query: '长篇文档', knowledgeBaseIds: ['kbx']);
   } catch (e) {
     svcErr = e;
   }
@@ -332,7 +332,7 @@ Future<void> _r4_degradation(Directory tmp, String sep) async {
   );
   final kbV = await svcV.createBase(name: '降级库');
   final fv = File('${tmp.path}${sep}降级.md')
-    ..writeAsStringSync('消防车水罐容积六千升。消防泵额定流量六十升每秒。');
+    ..writeAsStringSync('工程车油箱容积六千升。液压泵额定流量六十升每秒。');
   final imported = await svcV.importDocument(
     knowledgeBaseId: kbV.id,
     filePath: fv.path,
@@ -341,7 +341,7 @@ Future<void> _r4_degradation(Directory tmp, String sep) async {
   );
   t('R4.13', '降级时 importDocument 仍成功（走 embedding 路径）', DocumentStatus.indexed,
       imported.doc.status);
-  final dhits = await svcV.retrieve(query: '水罐容积', knowledgeBaseIds: [kbV.id], threshold: 0.0);
+  final dhits = await svcV.retrieve(query: '油箱容积', knowledgeBaseIds: [kbV.id], threshold: 0.0);
   t('R4.14', '降级到向量路径并返回命中（真的走通）', true, dhits.isNotEmpty,
       note: 'hits=${dhits.length}');
   dbv.dispose();
@@ -385,10 +385,10 @@ Future<void> _r5_threshold(Directory tmp, String sep, Directory src) async {
   final queries = <String>[
     '废标', // 2 字
     '偏离表', // 3 字
-    '不平衡报价', // 5 字
-    '投标人资格条件', // 7 字
+    '不平衡成本', // 5 字
+    '商务人资格条件', // 7 字
     '价格分与技术分的权重', // 10 字
-    '投标保证金递交开标时间节点', // 13 字（多概念长句）
+    '商务保证金递交开标时间节点', // 13 字（多概念长句）
   ];
   const thresholds = [0.3, 0.4, 0.5, 0.6, 0.75, 1.0];
 
@@ -465,8 +465,8 @@ Future<void> _s_o1StartupBackfill(Directory tmp, String sep) async {
       id: 's_doc', knowledgeBaseId: 's_kb', fileName: 's.md', filePath: '/s', fileHash: 'S',
       fileSize: 1, status: DocumentStatus.indexed, createdAt: now, updatedAt: now));
   const sChunks = [
-    KnowledgeChunk(id: 's_c1', documentId: 's_doc', text: '消防车水罐容积六千升', sequence: 1, chunkHash: 's1'),
-    KnowledgeChunk(id: 's_c2', documentId: 's_doc', text: '消防泵额定流量六十升每秒', sequence: 2, chunkHash: 's2'),
+    KnowledgeChunk(id: 's_c1', documentId: 's_doc', text: '工程车油箱容积六千升', sequence: 1, chunkHash: 's1'),
+    KnowledgeChunk(id: 's_c2', documentId: 's_doc', text: '液压泵额定流量六十升每秒', sequence: 2, chunkHash: 's2'),
   ];
   await repos.knowledge.insertChunks(sChunks);
   await rt.indexChunks(sChunks, knowledgeBaseId: 's_kb', documentId: 's_doc');
@@ -480,7 +480,7 @@ Future<void> _s_o1StartupBackfill(Directory tmp, String sep) async {
 
   ensureSchema(db); // 启动兜底回填
   t('S1.3', 'ensureSchema 后自动回填 FTS=2', 2, ftsRowCount(db));
-  final hits = await rt.search('水罐容积', knowledgeBaseIds: ['s_kb']);
+  final hits = await rt.search('油箱容积', knowledgeBaseIds: ['s_kb']);
   t('S1.4', '回填后可通过检索命中存量分块', true, hits.isNotEmpty,
       note: 'hit=${hits.isEmpty ? null : hits.first.chunk.id}');
   final snap1 = _ftsSnapshot(db);
@@ -501,9 +501,9 @@ Future<void> _s_o1StartupBackfill(Directory tmp, String sep) async {
       id: 's3_doc', knowledgeBaseId: 's3_kb', fileName: 's3.md', filePath: '/s3', fileHash: 'S3',
       fileSize: 1, status: DocumentStatus.indexed, createdAt: now, updatedAt: now));
   const s3Chunks = [
-    KnowledgeChunk(id: 's3_c1', documentId: 's3_doc', text: '水罐容积六千升', sequence: 1, chunkHash: 'a1'),
-    KnowledgeChunk(id: 's3_c2', documentId: 's3_doc', text: '消防泵流量六十升', sequence: 2, chunkHash: 'a2'),
-    KnowledgeChunk(id: 's3_c3', documentId: 's3_doc', text: '举高喷射臂架', sequence: 3, chunkHash: 'a3'),
+    KnowledgeChunk(id: 's3_c1', documentId: 's3_doc', text: '油箱容积六千升', sequence: 1, chunkHash: 'a1'),
+    KnowledgeChunk(id: 's3_c2', documentId: 's3_doc', text: '液压泵流量六十升', sequence: 2, chunkHash: 'a2'),
+    KnowledgeChunk(id: 's3_c3', documentId: 's3_doc', text: '长臂喷射臂架', sequence: 3, chunkHash: 'a3'),
   ];
   await repos3.knowledge.insertChunks(s3Chunks);
   await rt3.indexChunks(s3Chunks, knowledgeBaseId: 's3_kb', documentId: 's3_doc');

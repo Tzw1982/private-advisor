@@ -109,7 +109,7 @@ class DynamicLlm implements LlmProvider {
     final joined = request.messages.map((m) => m.content).join('\n');
     if (joined.contains('只输出 JSON')) {
       return '```json\n{"consensus":["资格条件需逐条响应"],"disagreements":[],'
-          '"recommendations":["先做资格预审","报价采用不平衡策略"],"open_questions":[]}\n```';
+          '"recommendations":["先做资格预审","成本采用不平衡策略"],"open_questions":[]}\n```';
     }
     // 让不同专家产出不同内容，避免被去重拦截
     final sys = request.messages.first.content;
@@ -275,11 +275,11 @@ Future<void> _verifyMarketPrimitives() async {
     {
       "packageId": "org.private-advisor.bid-tender",
       "slug": "bid-tender-expert",
-      "displayName": "投标文件解读专家",
-      "profession": "政府采购与招投标顾问",
-      "description": "拆解招标文件，提取资格条件与废标条款。",
+      "displayName": "商务文件解读专家",
+      "profession": "企业采购与商务合规顾问",
+      "description": "拆解长篇文档，提取资格条件与废标条款。",
       "categoryId": "12-IndustryConsultant",
-      "tags": ["招标文件", "资格条件"],
+      "tags": ["长篇文档", "资格条件"],
       "latestVersion": "1.0.0",
       "versions": [
         {"version":"1.0.0","releaseUrl":"https://example.com/a.expert","sha256":"abc"}
@@ -301,7 +301,7 @@ Future<void> _verifyMarketPrimitives() async {
   checkEq('索引解析包数', index.packages.length, 2);
   checkEq('按分类分组数', index.groupByCategory().keys.length, 2);
   checkEq('搜索"小红书"命中 1', index.search('小红书').length, 1);
-  checkEq('搜索"投标"命中 1', index.search('投标').length, 1);
+  checkEq('搜索"商务"命中 1', index.search('商务').length, 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -312,8 +312,8 @@ Future<void> _verifyPackageSecurity() async {
   section('2. 专家包安全链（10 步校验）');
 
   // 构造一个合法包
-  final expertJson = _b('{"displayName":"投标文件解读专家"}');
-  final prompt = _b('# 投标文件解读专家\n\n你是招投标顾问……');
+  final expertJson = _b('{"displayName":"商务文件解读专家"}');
+  final prompt = _b('# 商务文件解读专家\n\n你是商务合规顾问……');
   final readme = _b('# README\n');
 
   final files = [
@@ -336,7 +336,7 @@ Future<void> _verifyPackageSecurity() async {
         slug: 'bid-tender-expert',
         version: SemVer.parse('1.0.0'),
         appVersion: AppVersionRequirement.parse('>=1.3.0'),
-        displayName: '投标文件解读专家',
+        displayName: '商务文件解读专家',
         categoryId: '12-IndustryConsultant',
         entry: 'agents/main.md',
         sha256: overrideHash ?? pkgHash,
@@ -422,8 +422,8 @@ Future<void> _verifyStrategiesAndOrchestration() async {
   section('3. 群聊策略 / 去重 / 总结解析');
 
   final members = [
-    const GroupMember(expertId: 'e1', name: '投标专家', expertise: ['招标文件', '资格条件'], sortOrder: 0),
-    const GroupMember(expertId: 'e2', name: '报价专家', expertise: ['报价', '成本'], sortOrder: 1),
+    const GroupMember(expertId: 'e1', name: '商务专家', expertise: ['长篇文档', '资格条件'], sortOrder: 0),
+    const GroupMember(expertId: 'e2', name: '成本专家', expertise: ['成本', '成本'], sortOrder: 1),
     const GroupMember(expertId: 'e3', name: '合同专家', expertise: ['合同', '条款'], sortOrder: 2),
   ];
 
@@ -431,7 +431,7 @@ Future<void> _verifyStrategiesAndOrchestration() async {
     id: 'm1',
     conversationId: 'c1',
     senderType: MessageSenderType.user,
-    content: '帮我看看这份招标文件的资格条件和报价策略',
+    content: '帮我看看这份长篇文档的资格条件和成本策略',
     createdAt: 0,
     updatedAt: 0,
   );
@@ -475,21 +475,21 @@ Future<void> _verifyStrategiesAndOrchestration() async {
 
   // auto
   final auto = await AutoStrategy().selectNextSpeakers(ctx());
-  check('auto 命中标签（含投标/报价）', auto.primarySpeakers.contains('e1') && auto.primarySpeakers.contains('e2'),
+  check('auto 命中标签（含商务/成本）', auto.primarySpeakers.contains('e1') && auto.primarySpeakers.contains('e2'),
       'got=${auto.primarySpeakers}');
-  final tokens = AutoStrategy.tokenize('招标文件');
-  check('auto 分词含 bigram', tokens.contains('招标') && tokens.contains('标文'));
+  final tokens = AutoStrategy.tokenize('长篇文档');
+  check('auto 分词含 bigram', tokens.contains('长篇') && tokens.contains('篇文'));
 
   // dedup
   final det = DuplicateDetector(threshold: 0.8);
   const a = '本项目需要逐条响应资格条件，并提供营业执照、业绩证明等材料。';
   const b = '本项目需要逐条响应资格条件，并提供营业执照、业绩证明等材料。';
-  const c = '报价建议采用不平衡报价策略，对早期回款科目适当提高单价。';
+  const c = '成本建议采用不平衡成本策略，对早期回款科目适当提高单价。';
   check('完全相同 → 判定重复', det.check(b, [ExpertOutput(expertId: 'x', expertName: 'X', content: a)]).isDuplicate);
   check('内容不同 → 不判定重复', !det.check(c, [ExpertOutput(expertId: 'x', expertName: 'X', content: a)]).isDuplicate);
 
   // off-topic
-  final off = OffTopicDetector().check('今天天气不错，适合出去散步。', '帮我看看招标文件的资格条件');
+  final off = OffTopicDetector().check('今天天气不错，适合出去散步。', '帮我看看长篇文档的资格条件');
   check('跑题内容被识别', off.isOffTopic);
 
   // summary parse
@@ -549,26 +549,26 @@ Future<void> _verifySingleChat(Harness h) async {
   section('5. 单聊 Vertical Slice（Run/Step/Event/Message）');
 
   final expert = await h.experts.createLocal(
-    name: '投标专家',
-    systemPrompt: '你是政府采购与招投标顾问，逐条响应招标要求。',
-    profession: '招投标顾问',
+    name: '商务专家',
+    systemPrompt: '你是企业采购与商务合规顾问，逐条响应长篇要求。',
+    profession: '商务合规顾问',
     categoryId: '12-IndustryConsultant',
   );
   check('专家创建成功', expert.id.isNotEmpty);
   checkEq('默认接地策略', (await h.experts.resolveEffective(expert.id)).groundingPolicy, GroundingPolicy.off);
 
-  await h.experts.setTags(expert.id, ['招标文件', '资格条件']);
+  await h.experts.setTags(expert.id, ['长篇文档', '资格条件']);
 
   final conv = await h.conversations.createSingle(expert.id);
   checkEq('单聊会话类型', conv.type, ConversationType.single);
 
-  final userMsg = await h.conversations.appendUserMessage(conv.id, '帮我拆解这份招标文件');
+  final userMsg = await h.conversations.appendUserMessage(conv.id, '帮我拆解这份长篇文档');
 
   final updates = <GenerationUpdate>[];
   await for (final u in h.generation.runSingleChat(
     conversationId: conv.id,
     userMessageId: userMsg.id,
-    userText: '帮我拆解这份招标文件',
+    userText: '帮我拆解这份长篇文档',
   )) {
     updates.add(u);
   }
@@ -607,7 +607,7 @@ Future<void> _verifyStrictGroundingNoEvidence(Harness h) async {
 
   final expert = await h.experts.createLocal(
     name: '技术规格专家',
-    systemPrompt: '你是消防车技术规格专家。',
+    systemPrompt: '你是工程车技术规格专家。',
   );
   await h.experts.updateRuntimeConfig(
     ExpertRuntimeConfig(expertId: expert.id, groundingPolicy: GroundingPolicy.strict),
@@ -646,23 +646,23 @@ Future<void> _verifyStrictGroundingNoEvidence(Harness h) async {
 Future<void> _verifyKnowledgeAndGroundedChat(Harness h) async {
   section('7. 知识库导入 → 检索 → 严格模式命中带引用');
 
-  final base = await h.knowledge.createBase(name: '消防车技术规格库');
+  final base = await h.knowledge.createBase(name: '工程车技术规格库');
   check('知识库创建成功', base.id.isNotEmpty);
 
   // 写一个临时文档
   final dir = Directory.systemTemp.createTempSync('pa_verify_');
   final file = File('${dir.path}/规格书.md');
   file.writeAsStringSync('''
-# 消防车技术规格书
+# 工程车技术规格书
 
 ## 3.2.1 车辆性能参数
 
 整车整备质量为 12000 kg，最大总质量 18000 kg，轴距 4500 mm，
-最高车速不低于 100 km/h，水罐容积 6000 L。
+最高车速不低于 100 km/h，油箱容积 6000 L。
 
-## 3.2.2 消防泵参数
+## 3.2.2 液压泵参数
 
-消防泵额定流量 60 L/s，额定压力 1.0 MPa，最大吸深 7 m。
+液压泵额定流量 60 L/s，额定压力 1.0 MPa，最大吸深 7 m。
 ''');
 
   final imported = await h.knowledge.importDocument(
@@ -689,7 +689,7 @@ Future<void> _verifyKnowledgeAndGroundedChat(Harness h) async {
   // 绑定给专家（阈值调低以适配哈希 embedding）
   final expert = await h.experts.createLocal(
     name: '技术规格专家2',
-    systemPrompt: '你是消防车技术规格专家，只依据资料回答。',
+    systemPrompt: '你是工程车技术规格专家，只依据资料回答。',
   );
   await h.experts.bindKnowledge(expert.id, base.id, topK: 3, threshold: 0.02);
   await h.experts.updateRuntimeConfig(
@@ -702,23 +702,23 @@ Future<void> _verifyKnowledgeAndGroundedChat(Harness h) async {
 
   final citations = await h.knowledge.retrieveForExpert(
     expertId: expert.id,
-    query: '消防泵的额定流量和压力是多少',
+    query: '液压泵的额定流量和压力是多少',
   );
   check('检索命中知识片段', citations.isNotEmpty, 'hits=${citations.length}');
   check('引用含文件名', citations.first.fileName == '规格书.md');
-  check('引用含标题路径', (citations.first.headingPath ?? '').contains('消防泵'));
+  check('引用含标题路径', (citations.first.headingPath ?? '').contains('液压泵'));
   check('引用展示串含相关度', citations.first.toDisplay().contains('相关度'));
 
   // 严格模式 + 有证据 → 应调用 LLM 且带引用
   final conv = await h.conversations.createSingle(expert.id);
-  final userMsg = await h.conversations.appendUserMessage(conv.id, '消防泵的额定流量和压力是多少？');
+  final userMsg = await h.conversations.appendUserMessage(conv.id, '液压泵的额定流量和压力是多少？');
   final before = (h.llm as DynamicLlm).calls.length;
 
   final updates = <GenerationUpdate>[];
   await for (final u in h.generation.runSingleChat(
     conversationId: conv.id,
     userMessageId: userMsg.id,
-    userText: '消防泵的额定流量和压力是多少？',
+    userText: '液压泵的额定流量和压力是多少？',
   )) {
     updates.add(u);
   }
@@ -752,26 +752,26 @@ Future<void> _verifyGroupChat(Harness h) async {
   section('8. 群聊编排（策略 → 生成 → 去重 → 总结）');
 
   final e1 = await h.experts.createLocal(
-    name: '投标专家G',
-    systemPrompt: '你是投标专家，关注资格条件与响应。',
-    profession: '招投标顾问',
+    name: '商务专家G',
+    systemPrompt: '你是商务专家，关注资格条件与响应。',
+    profession: '商务合规顾问',
   );
   final e2 = await h.experts.createLocal(
-    name: '报价专家G',
-    systemPrompt: '你是报价专家，关注成本与报价策略。',
-    profession: '成本报价顾问',
+    name: '成本专家G',
+    systemPrompt: '你是成本专家，关注成本与成本策略。',
+    profession: '成本成本顾问',
   );
   final e3 = await h.experts.createLocal(
     name: '合同专家G',
     systemPrompt: '你是合同审查专家，关注条款风险。',
     profession: '合同法务顾问',
   );
-  await h.experts.setTags(e1.id, ['招标文件', '资格条件']);
-  await h.experts.setTags(e2.id, ['报价', '成本']);
+  await h.experts.setTags(e1.id, ['长篇文档', '资格条件']);
+  await h.experts.setTags(e2.id, ['成本', '成本']);
   await h.experts.setTags(e3.id, ['合同', '条款']);
 
   final group = await h.conversations.createGroup(
-    title: '投标作战群',
+    title: '商务作战群',
     expertIds: [e1.id, e2.id, e3.id],
     speakStrategy: 'manual',
     summarizerExpertId: e1.id,
@@ -782,14 +782,14 @@ Future<void> _verifyGroupChat(Harness h) async {
   // 手动 @ 两位专家 + 触发总结
   final userMsg = await h.conversations.appendUserMessage(
     group.id,
-    '@投标专家G @报价专家G 这份招标文件怎么打？',
+    '@商务专家G @成本专家G 这份长篇文档怎么打？',
   );
 
   final updates = <GenerationUpdate>[];
   await for (final u in h.group.runGroupChat(
     conversationId: group.id,
     userMessageId: userMsg.id,
-    userText: '@投标专家G @报价专家G 这份招标文件怎么打？',
+    userText: '@商务专家G @成本专家G 这份长篇文档怎么打？',
   )) {
     updates.add(u);
   }
@@ -813,13 +813,13 @@ Future<void> _verifyGroupChat(Harness h) async {
   final expertMsgs = msgs.where((m) => m.isFromExpert).toList();
   checkEq('落库专家消息 = 2 发言 + 1 总结', expertMsgs.length, 3);
 
-  // 自动策略应命中投标/报价标签
+  // 自动策略应命中商务/成本标签
   final autoUpdates = <GenerationUpdate>[];
-  final msg2 = await h.conversations.appendUserMessage(group.id, '报价和资格条件哪个优先？');
+  final msg2 = await h.conversations.appendUserMessage(group.id, '成本和资格条件哪个优先？');
   await for (final u in h.group.runGroupChat(
     conversationId: group.id,
     userMessageId: msg2.id,
-    userText: '报价和资格条件哪个优先？',
+    userText: '成本和资格条件哪个优先？',
     strategyOverride: 'auto',
   )) {
     autoUpdates.add(u);
@@ -884,13 +884,13 @@ Future<void> _verifyFailSoft(Harness h) async {
     expertIds: [ok.id, bad.id],
     speakStrategy: 'round_robin',
   );
-  final msg = await h.conversations.appendUserMessage(group.id, '正常专家 请分析这份招标文件');
+  final msg = await h.conversations.appendUserMessage(group.id, '正常专家 请分析这份长篇文档');
 
   final updates = <GenerationUpdate>[];
   await for (final u in h.group.runGroupChat(
     conversationId: group.id,
     userMessageId: msg.id,
-    userText: '正常专家 请分析这份招标文件',
+    userText: '正常专家 请分析这份长篇文档',
   )) {
     updates.add(u);
   }

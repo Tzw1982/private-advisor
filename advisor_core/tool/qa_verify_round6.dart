@@ -62,8 +62,8 @@ GroupMember _m(String id, String name, List<String> tags,
         {MemberRole role = MemberRole.member, int sort = 0}) =>
     GroupMember(expertId: id, name: name, expertise: tags, role: role, sortOrder: sort);
 
-final _leader = _m('eL', '李组', ['消防车'], role: MemberRole.leader, sort: 0);
-final _zhang = _m('eM1', '张工', ['消防车泵'], sort: 1);
+final _leader = _m('eL', '李组', ['工程车'], role: MemberRole.leader, sort: 0);
+final _zhang = _m('eM1', '张工', ['液压泵组'], sort: 1);
 final _wang = _m('eM2', '王律', ['合同法'], sort: 2);
 
 Message _user(String text) => Message(
@@ -109,40 +109,40 @@ void _t_relevance() {
   section('A 相关性 & 唯一分词口径（T01 · B3）');
 
   // A1 中文：逐字 + 相邻 2-gram，去重
-  final fire = ExpertiseTokenizer.tokenize('消防车');
-  t('A1', 'tokenize("消防车") 恰好 5 个 token', 5, fire.length,
+  final fire = ExpertiseTokenizer.tokenize('工程车');
+  t('A1', 'tokenize("工程车") 恰好 5 个 token', 5, fire.length,
       note: '实际=${fire.toList()}');
-  t('A1a', '含单字 消/防/车', true,
-      fire.containsAll(<String>['消', '防', '车']));
-  t('A1b', '含 bigram 消防/防车', true, fire.containsAll(<String>['消防', '防车']));
-  t('A1c', '无 3-gram（如 消防车）', false, fire.contains('消防车'));
+  t('A1a', '含单字 工/程/车', true,
+      fire.containsAll(<String>['工', '程', '车']));
+  t('A1b', '含 bigram 工程/程车', true, fire.containsAll(<String>['工程', '程车']));
+  t('A1c', '无 3-gram（如 工程车）', false, fire.contains('工程车'));
 
   // A2 拉丁/数字整体小写成 token
   final mpa = ExpertiseTokenizer.tokenize('MPa 60').toList()..sort();
   t('A2', 'tokenize("MPa 60") = {60, mpa}', '[60, mpa]', '$mpa');
 
   // A3 唯一口径：AutoStrategy.tokenize 必须与 ExpertiseTokenizer 逐字相同
-  const probe = '举高喷射臂架系统 60m MPa';
+  const probe = '长臂喷射臂架系统 60m MPa';
   t('A3', 'AutoStrategy.tokenize == ExpertiseTokenizer.tokenize', true,
       _setEq(AutoStrategy.tokenize(probe), ExpertiseTokenizer.tokenize(probe)));
 
-  // A4 score：命中 token / 标签 token 数（标签 ['消防车'] vs 查询含全部 → 1.0）
-  final s1 = MemberRelevanceScorer.score('消防车举高', _leader);
-  t('A4', 'score(消防车举高, 标签[消防车]) = 1.0', 1.0, s1);
+  // A4 score：命中 token / 标签 token 数（标签 ['工程车'] vs 查询含全部 → 1.0）
+  final s1 = MemberRelevanceScorer.score('工程车长臂', _leader);
+  t('A4', 'score(工程车长臂, 标签[工程车]) = 1.0', 1.0, s1);
 
   // A5 总结者 0.5 折扣
-  final summ = _m('eS', '总结员', ['消防车'], role: MemberRole.summarizer);
-  t('A5', '总结者同标签 score 打折 = 0.5', 0.5, MemberRelevanceScorer.score('消防车举高', summ));
+  final summ = _m('eS', '总结员', ['工程车'], role: MemberRole.summarizer);
+  t('A5', '总结者同标签 score 打折 = 0.5', 0.5, MemberRelevanceScorer.score('工程车长臂', summ));
 
   // A6 rank：相关度降序；同分按 sortOrder 升序
-  final ranked = MemberRelevanceScorer.rank('消防车泵', [_wang, _zhang, _leader]);
+  final ranked = MemberRelevanceScorer.rank('液压泵组', [_wang, _zhang, _leader]);
   t('A6', 'rank 首位为高相关成员（张工/李组 同为满分）', true,
       ranked.first.expertId == 'eM1' || ranked.first.expertId == 'eL',
       note: '实际序=${ranked.map((m) => m.expertId).toList()}');
   t('A6b', 'rank 末位为不相关成员（王律）', 'eM2', ranked.last.expertId);
 
   // A7 relevantAbove：0 相关者被过滤
-  final rel = MemberRelevanceScorer.relevantAbove('消防车泵', [_leader, _zhang, _wang]);
+  final rel = MemberRelevanceScorer.relevantAbove('工程车液压泵组', [_leader, _zhang, _wang]);
   t('A7', 'relevantAbove 仅保留相关成员（王律被滤）', 'eL,eM1',
       (rel.map((m) => m.expertId).toList()..sort()).join(','));
 
@@ -285,9 +285,9 @@ Future<void> _t_leaderLed() async {
       note: 'speakers=${d1.primarySpeakers}');
   t('D1b', '组长先行（首位=李组）', 'eL', d1.primarySpeakers.first);
 
-  // D2 相关性粗筛：消防车泵 → 李组 + 张工；王律被滤
+  // D2 相关性粗筛：液压泵组 → 李组 + 张工；王律被滤
   final d2 = await LeaderLedStrategy(maxSpeakers: 3)
-      .selectNextSpeakers(_ctx('消防车泵的流量怎么算'));
+      .selectNextSpeakers(_ctx('液压泵组的流量怎么算'));
   t('D2', '相关成员上位（含张工）', true, d2.primarySpeakers.contains('eM1'));
   t('D2b', '不相关成员被滤（无王律）', false, d2.primarySpeakers.contains('eM2'));
   t('D2c', '命中人数 = 2', 2, d2.primarySpeakers.length);
@@ -315,7 +315,7 @@ Future<void> _t_leaderLed() async {
 
   // D6 maxSpeakers=1 无 @ → 组长占唯一名额
   final d6 = await LeaderLedStrategy(maxSpeakers: 1)
-      .selectNextSpeakers(_ctx('消防车泵'));
+      .selectNextSpeakers(_ctx('液压泵组'));
   t('D6', 'maxSpeakers=1 无@ → 仅组长', 'eL', d6.primarySpeakers.join(','));
 
   // D7 组长上一轮 @提名 → 被点名者强制入选
@@ -334,7 +334,7 @@ Future<void> _t_leaderLed() async {
   // D9 无组长时：不冷场兜底不成立 → 退化为相关性选择（避免返回空）
   final noLeaderCtx = GroupContext(
     conversationId: 'c6',
-    userMessage: _user('消防车泵'),
+    userMessage: _user('液压泵组'),
     members: [_zhang, _wang],
   );
   final d9 = await LeaderLedStrategy(maxSpeakers: 3).selectNextSpeakers(noLeaderCtx);
@@ -419,7 +419,7 @@ Future<void> _t_e2eRunGroupChat() async {
   // —— F1：全静默：所有发言者返回【不参与】 → 绝不产生可见气泡 ——
   final f1 = await _runGroup(
     replies: ['【不参与】'],
-    userText: '消防车泵的流量怎么算',
+    userText: '液压泵组的流量怎么算',
     strategy: 'leader_led',
   );
   final expertMsgs1 = f1.msgs.where((m) => m.isFromExpert).toList();
@@ -433,8 +433,8 @@ Future<void> _t_e2eRunGroupChat() async {
 
   // —— F2：正常：返回正常文本 → 产生已完成气泡 ——
   final f2 = await _runGroup(
-    replies: ['这是基于消防车泵流量的专业结论。'],
-    userText: '消防车泵的流量怎么算',
+    replies: ['这是基于液压泵组流量的专业结论。'],
+    userText: '液压泵组的流量怎么算',
     strategy: 'leader_led',
   );
   final expertMsgs2 = f2.msgs.where((m) => m.isFromExpert).toList();
@@ -498,8 +498,8 @@ Future<_GroupRun> _runGroup({
 
   // 专家 + 标签
   for (final e in [
-    (id: 'eL', name: '李组', tags: ['消防车']),
-    (id: 'eM1', name: '张工', tags: ['消防车泵']),
+    (id: 'eL', name: '李组', tags: ['工程车']),
+    (id: 'eM1', name: '张工', tags: ['液压泵组']),
     (id: 'eM2', name: '王律', tags: ['合同法']),
   ]) {
     await repos.experts.upsertExpert(Expert(

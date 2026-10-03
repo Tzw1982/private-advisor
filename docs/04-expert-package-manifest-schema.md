@@ -31,7 +31,7 @@
   "slug": "bid-tender-expert",
   "version": "1.0.0",
   "appVersion": ">=1.3.0",
-  "displayName": "投标文件解读专家",
+  "displayName": "商务文件解读专家",
   "categoryId": "12-IndustryConsultant",
   "entry": "agents/main.md",
   "sha256": "<包内容哈希，见 §4>",
@@ -74,12 +74,12 @@
 
 ```json
 {
-  "displayName": "投标文件解读专家",
-  "profession": "政府采购与招投标顾问",
-  "description": "拆解招标文件，提取资格条件、评分办法与废标条款，输出结构化风险清单。",
-  "tags": ["招标文件", "资格条件", "评分办法"],
-  "quickPrompts": ["拆解这份招标文件", "提取评分办法", "列出废标条款"],
-  "welcomeMessage": "把招标文件发我，我帮你拆资格条件和废标条款。",
+  "displayName": "商务文件解读专家",
+  "profession": "企业采购与商务合规顾问",
+  "description": "拆解长篇文档，提取资格条件、评分办法与废标条款，输出结构化风险清单。",
+  "tags": ["长篇文档", "资格条件", "评分办法"],
+  "quickPrompts": ["拆解这份长篇文档", "提取评分办法", "列出废标条款"],
+  "welcomeMessage": "把长篇文档发我，我帮你拆资格条件和废标条款。",
   "recommendedModel": "deepseek-chat",
   "temperature": 0.3,
   "knowledgeHint": "技术规格书 / 历史标书"
@@ -178,11 +178,11 @@ local_modified?
     {
       "packageId": "org.private-advisor.bid-tender",
       "slug": "bid-tender-expert",
-      "displayName": "投标文件解读专家",
-      "profession": "政府采购与招投标顾问",
+      "displayName": "商务文件解读专家",
+      "profession": "企业采购与商务合规顾问",
       "description": "……",
       "categoryId": "12-IndustryConsultant",
-      "tags": ["招标文件", "资格条件"],
+      "tags": ["长篇文档", "资格条件"],
       "latestVersion": "1.0.0",
       "versions": [
         {

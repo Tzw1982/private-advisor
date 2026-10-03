@@ -64,7 +64,7 @@ void _t_styleOrder() {
   const groupMark = 'GROUP_BLOCK_MARK_群级块';
   final evidence = [
     const Citation(
-        chunkId: 'c1', documentId: 'd1', fileName: '规格书.md', text: '水罐容积6000升', score: 0.9),
+        chunkId: 'c1', documentId: 'd1', fileName: '规格书.md', text: '油箱容积6000升', score: 0.9),
   ];
   final style = StyleLibrary.directiveFor('professional'); // 【风格要求·专业严谨】…
   final msgs = ContextManager.build(

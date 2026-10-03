@@ -269,9 +269,9 @@ Future<void> _verifyEndToEndImport(Directory tmp, String sep) async {
   // —— 造临时目录：根 a.md / dup.md（同内容）/ b.md / note.xyz；子目录 sub/c.md；
   //    以及应被跳过的 .hidden.md、~$lock.md ——
   final src = Directory('${tmp.path}${sep}import_src')..createSync(recursive: true);
-  File('${src.path}${sep}a.md').writeAsStringSync('# 规格书\n\n消防泵额定流量 60 L/s。');
-  File('${src.path}${sep}dup.md').writeAsStringSync('# 规格书\n\n消防泵额定流量 60 L/s。');
-  File('${src.path}${sep}b.md').writeAsStringSync('# 参数\n\n水罐容积 6000 L。');
+  File('${src.path}${sep}a.md').writeAsStringSync('# 规格书\n\n液压泵额定流量 60 L/s。');
+  File('${src.path}${sep}dup.md').writeAsStringSync('# 规格书\n\n液压泵额定流量 60 L/s。');
+  File('${src.path}${sep}b.md').writeAsStringSync('# 参数\n\n油箱容积 6000 L。');
   File('${src.path}${sep}note.xyz').writeAsStringSync('不支持的格式');
   File('${src.path}${sep}.hidden.md').writeAsStringSync('隐藏文件不应被扫描');
   File('${src.path}${sep}~\$lock.md').writeAsStringSync('Office 临时锁文件');
@@ -336,7 +336,7 @@ Future<void> _verifyEndToEndImport(Directory tmp, String sep) async {
   final docs = await repos.knowledge.listDocuments(base.id);
   checkEq('知识库文档数 = 3', docs.length, 3);
 
-  final hits = await knowledge.retrieve(query: '消防泵额定流量', knowledgeBaseIds: [base.id]);
+  final hits = await knowledge.retrieve(query: '液压泵额定流量', knowledgeBaseIds: [base.id]);
   check('FTS5 检索命中导入内容', hits.isNotEmpty, 'hits=${hits.length}');
   check('引用含来源文件名', hits.isNotEmpty && hits.first.fileName.isNotEmpty);
 

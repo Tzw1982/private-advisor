@@ -98,7 +98,7 @@ void _verifyStyleInjectionOrder() {
   );
 
   final msgs = ContextManager.build(
-    systemPrompt: '【提示词】你是消防车专家。',
+    systemPrompt: '【提示词】你是工程车专家。',
     styleDirective: StyleLibrary.directiveFor('professional'),
     userTask: '请分析',
     evidence: [citation],
@@ -382,7 +382,7 @@ Future<void> _verifyInboxAndGroups() async {
   );
 
   final c1 = await conversations.createSingle(zhang.id);
-  await conversations.appendUserMessage(c1.id, '请分析这份消防车招标文件的风险点');
+  await conversations.appendUserMessage(c1.id, '请分析这份工程车长篇文档的风险点');
 
   final c2 = await conversations.createGroup(
     title: '决策群',
@@ -402,7 +402,7 @@ Future<void> _verifyInboxAndGroups() async {
 
   final singleEntry = inbox.firstWhere((e) => e.conversation.id == c1.id);
   checkEq('单聊标题 = 备注名（优先）', singleEntry.title, '小张顾问');
-  check('单聊摘要来自最后一条消息', singleEntry.snippet.contains('消防车'));
+  check('单聊摘要来自最后一条消息', singleEntry.snippet.contains('工程车'));
 
   // 分组（内存）
   final g = await experts.createGroup('工作组');
@@ -450,7 +450,7 @@ void _verifyContentPresenter() {
   check('压缩连续空行', !presented.contains('\n\n\n'));
   check('去行尾空白', presented.endsWith('。'));
 
-  final split = ContentPresenter.split('建议分三步推进。\n\n第一步：尽调。\n第二步：报价。');
+  final split = ContentPresenter.split('建议分三步推进。\n\n第一步：尽调。\n第二步：成本。');
   checkEq('结论取首段', split.conclusion, '建议分三步推进。');
   check('理由取其余段', split.reasons.contains('第一步'));
 

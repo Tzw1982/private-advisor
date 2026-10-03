@@ -184,10 +184,10 @@ String buildIndexJson(String releaseUrl, String sha256) => jsonEncode({
           'packageId': 'org.test.bid-reader',
           'slug': 'bid-reader',
           'displayName': '标书解读助手',
-          'profession': '招投标顾问',
-          'description': '拆解招标文件与评分办法',
+          'profession': '商务合规顾问',
+          'description': '逐条拆解长篇要求与评分办法',
           'categoryId': '12-IndustryConsultant',
-          'tags': ['招标部', '标书'],
+          'tags': ['长篇部', '标书'],
           'latestVersion': '1.0.0',
           'versions': [
             {'version': '1.0.0', 'releaseUrl': releaseUrl, 'sha256': sha256, 'publishedAt': 2}

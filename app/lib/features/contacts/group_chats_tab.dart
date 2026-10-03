@@ -99,7 +99,7 @@ class _GroupChatsTabState extends State<GroupChatsTab> {
     if (pickedEntries == null || pickedEntries.isEmpty) return;
     final pickedIds = pickedEntries.map((c) => c.expert.id).toList();
 
-    final title = await _promptText('群聊名称', '例如：投标决策群');
+    final title = await _promptText('群聊名称', '例如：商务决策群');
     if (title == null || title.trim().isEmpty) return;
 
     // 恰好 0 或 1 名组长：不指定则不设组长（可后续在群成员面板指定）。

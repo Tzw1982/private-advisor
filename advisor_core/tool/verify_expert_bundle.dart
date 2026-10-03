@@ -146,9 +146,9 @@ Repositories _reposWith(ExpertRepository experts) {
 /// 返回该专家与（可选）知识库。
 Future<({Expert expert, KnowledgeBase? kb})> _seedExpert(
   Repositories repos, {
-  String name = '招标文件解读专家',
-  String prompt = '你是政府采购与招投标顾问，逐条响应招标要求。',
-  String profession = '政府采购与招投标顾问',
+  String name = '长篇文档解读专家',
+  String prompt = '你是企业采购与商务合规顾问，逐条响应长篇要求。',
+  String profession = '企业采购与商务合规顾问',
   bool withProfile = true,
   String? kbName,
 }) async {
@@ -173,10 +173,10 @@ Future<({Expert expert, KnowledgeBase? kb})> _seedExpert(
     name: name,
     systemPrompt: prompt,
     profession: profession,
-    quickPrompts: const ['拆解这份招标文件', '提取评分办法'],
+    quickPrompts: const ['拆解这份长篇文档', '提取评分办法'],
     welcomeMessage: '把文件发我。',
   );
-  await experts.setTags(expert.id, ['招标文件', '资格条件']);
+  await experts.setTags(expert.id, ['长篇文档', '资格条件']);
 
   if (withProfile) {
     await experts.updateRuntimeConfig(ExpertRuntimeConfig(
@@ -279,7 +279,7 @@ Future<void> _t02Export() async {
   section('T02 导出（单专家 / 批量 / 包结构）');
 
   final repos = inMemoryRepositories();
-  final seeded = await _seedExpert(repos, kbName: '投标知识库');
+  final seeded = await _seedExpert(repos, kbName: '商务知识库');
   final exportSvc = ExpertExportService(repos);
 
   // 默认：无 profile、无头像。
@@ -311,12 +311,12 @@ Future<void> _t02Export() async {
       !profileText.contains('sk-test-placeholder-not-a-real-key-000'));
   check('profile 携带知识库绑定（按名）',
       profile.knowledgeBindings.isNotEmpty &&
-          profile.knowledgeBindings.first.knowledgeBaseName == '投标知识库');
+          profile.knowledgeBindings.first.knowledgeBaseName == '商务知识库');
 
   // 批量。
   final second = await ExpertService(repos).createLocal(
-    name: '报价专家',
-    systemPrompt: '你是报价专家。',
+    name: '成本专家',
+    systemPrompt: '你是成本专家。',
   );
   final batch = await exportSvc.build(expertIds: [seeded.expert.id, second.id]);
   check('批量 → isBundle', batch.isBundle);
@@ -339,7 +339,7 @@ Future<void> _t03RoundTrip() async {
   section('T03 round-trip（导出 → 导入 一致）');
 
   final src = inMemoryRepositories();
-  final seeded = await _seedExpert(src, kbName: '投标知识库');
+  final seeded = await _seedExpert(src, kbName: '商务知识库');
   final one = await ExpertExportService(src)
       .build(expertIds: [seeded.expert.id], includeLocal: true);
 
@@ -352,7 +352,7 @@ Future<void> _t03RoundTrip() async {
     name: '默认凭据',
   );
   final dstKb = KnowledgeBase(
-      id: Ids.next('kb'), name: '投标知识库', createdAt: 0, updatedAt: 0);
+      id: Ids.next('kb'), name: '商务知识库', createdAt: 0, updatedAt: 0);
   await dst.knowledge.upsertBase(dstKb);
 
   final importSvc = ExpertImportService(dst);
@@ -366,11 +366,11 @@ Future<void> _t03RoundTrip() async {
   checkEq('导入失败 0 位', report.failed, 0);
 
   final imported = (await ExpertService(dst).list()).single;
-  checkEq('名称一致', imported.name, '招标文件解读专家');
+  checkEq('名称一致', imported.name, '长篇文档解读专家');
   checkEq('系统提示词一致', imported.systemPrompt, seeded.expert.systemPrompt);
   checkEq('来源 = imported', imported.source, ExpertSource.imported);
   final tags = await dst.experts.getTags(imported.id);
-  checkEq('标签一致', tags.toSet(), {'招标文件', '资格条件'}.toSet());
+  checkEq('标签一致', tags.toSet(), {'长篇文档', '资格条件'}.toSet());
   final state = await dst.experts.getUserState(imported.id);
   checkEq('备注一致', state?.remark, '老王');
   checkEq('风格一致', state?.styleId, 'professional');
@@ -390,7 +390,7 @@ Future<void> _t03Conflict() async {
   section('T03 冲突三策略（新建副本 / 覆盖 / 跳过）');
 
   final src = inMemoryRepositories();
-  final seeded = await _seedExpert(src, kbName: '投标知识库');
+  final seeded = await _seedExpert(src, kbName: '商务知识库');
   final one = await ExpertExportService(src)
       .build(expertIds: [seeded.expert.id], includeLocal: true);
 
@@ -399,20 +399,20 @@ Future<void> _t03Conflict() async {
   await ProviderService(copyRepos).registerBuiltins();
   final copyExpertSvc = ExpertService(copyRepos);
   await copyExpertSvc.createLocal(
-      name: '招标文件解读专家', systemPrompt: '既有专家，占位。');
+      name: '长篇文档解读专家', systemPrompt: '既有专家，占位。');
   final copySvc = ExpertImportService(copyRepos);
   final copyPlan = await copySvc.plan(one.bytes);
   check('重复导入 → conflict', copyPlan.items.first.isConflict);
   checkEq('冲突命中同名既有专家',
-      copyPlan.items.first.conflict?.matchedName, '招标文件解读专家');
+      copyPlan.items.first.conflict?.matchedName, '长篇文档解读专家');
   final copyReport = await copySvc.apply(copyPlan, decisions: {
     copyPlan.items.first.key: ConflictStrategy.newCopy,
   });
   checkEq('副本新增 1 位', copyReport.added, 1);
   final copyNames = (await copyExpertSvc.list()).map((e) => e.name).toSet();
-  check('副本名带「（导入 2）」', copyNames.contains('招标文件解读专家（导入 2）'), '$copyNames');
+  check('副本名带「（导入 2）」', copyNames.contains('长篇文档解读专家（导入 2）'), '$copyNames');
   final copyImported = (await copyExpertSvc.list())
-      .firstWhere((e) => e.name == '招标文件解读专家（导入 2）');
+      .firstWhere((e) => e.name == '长篇文档解读专家（导入 2）');
   final copyBindings =
       await copyRepos.experts.listKnowledgeBindings(copyImported.id);
   check('副本不携带知识库绑定', copyBindings.isEmpty);
@@ -422,7 +422,7 @@ Future<void> _t03Conflict() async {
   await ProviderService(overRepos).registerBuiltins();
   final overExpertSvc = ExpertService(overRepos);
   final existing =
-      await overExpertSvc.createLocal(name: '招标文件解读专家', systemPrompt: '旧提示词。');
+      await overExpertSvc.createLocal(name: '长篇文档解读专家', systemPrompt: '旧提示词。');
   final overSvc = ExpertImportService(overRepos);
   final overPlan = await overSvc.plan(one.bytes);
   check('覆盖前 → conflict', overPlan.items.first.isConflict);
@@ -439,7 +439,7 @@ Future<void> _t03Conflict() async {
   final skipRepos = inMemoryRepositories();
   await ProviderService(skipRepos).registerBuiltins();
   final skipExpertSvc = ExpertService(skipRepos);
-  await skipExpertSvc.createLocal(name: '招标文件解读专家', systemPrompt: '旧。');
+  await skipExpertSvc.createLocal(name: '长篇文档解读专家', systemPrompt: '旧。');
   final skipSvc = ExpertImportService(skipRepos);
   final skipPlan = await skipSvc.plan(one.bytes);
   final skipReport = await skipSvc.apply(skipPlan, decisions: {

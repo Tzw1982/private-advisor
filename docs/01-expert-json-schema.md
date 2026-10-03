@@ -42,12 +42,12 @@ ExpertInstance      用户实际聊天用的专家（expertId，独立 UUID）
 ```json
 {
   "id": "e_9f2c1a44",
-  "name": "投标文件解读专家",
-  "profession": "政府采购与招投标顾问",
+  "name": "商务文件解读专家",
+  "profession": "企业采购与商务合规顾问",
   "avatarPath": "experts/instances/e_9f2c1a44/avatar.png",
-  "systemPrompt": "你是一名政府采购与招投标顾问……",
-  "welcomeMessage": "把招标文件发我，我帮你拆资格条件和废标条款。",
-  "quickPrompts": ["拆解这份招标文件", "提取评分办法", "列出废标条款"],
+  "systemPrompt": "你是一名企业采购与商务合规顾问……",
+  "welcomeMessage": "把长篇文档发我，我帮你拆资格条件和废标条款。",
+  "quickPrompts": ["拆解这份长篇文档", "提取评分办法", "列出废标条款"],
   "packageId": "org.private-advisor.bid-tender",
   "packageVersion": "1.0.0",
   "source": "market",

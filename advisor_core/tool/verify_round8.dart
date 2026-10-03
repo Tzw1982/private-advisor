@@ -1245,7 +1245,7 @@ Future<_AttRig> _buildAttRig(
         convId: conv.id);
   }
   final expert =
-      await experts.createLocal(name: '招标顾问', systemPrompt: '你是招标顾问。');
+      await experts.createLocal(name: '长篇顾问', systemPrompt: '你是长篇顾问。');
   final conv = await conversations.createSingle(expert.id);
   return _AttRig(
       repos: repos,
@@ -1263,7 +1263,7 @@ String _lastUserTask(ChatRequest request) => request.messages.last.content;
 Future<void> _verifyAttachmentNotice() async {
   section('11. 附件告知注入（专家"知道"用户发了附件，T51）');
 
-  const userText = '请帮我看看这个招标文件';
+  const userText = '请帮我看看这个长篇文档';
   // 体积取值按「AttachmentPolicy.formatBytes 实际输出」反推，不写死错值：
   //   1258291 B /1024/1024 ≈ 1.1999998 → '1.2MB'
   //   3565158 B /1024/1024 ≈ 3.3999996 → '3.4MB'
@@ -1326,11 +1326,11 @@ Future<void> _verifyAttachmentNotice() async {
       userText);
 
   // ---- ⑤ 群聊：每位发言者与总结者都注入（用户文本触发"全员发言"指令）----
-  const groupText = '大家看看这个招标文件的风险';
+  const groupText = '大家看看这个长篇文档的风险';
   final rig5 = await _buildAttRig(group: true);
   final u5 = await rig5.conversations.appendUserMessage(rig5.convId, groupText);
   await rig5.repos.attachments.insertAttachment(
-      _att('att_g', u5.id, '招标文件.pdf', AttachmentKind.file, pdfBytes));
+      _att('att_g', u5.id, '长篇文档.pdf', AttachmentKind.file, pdfBytes));
   await rig5.runGroup(u5.id, groupText);
 
   final memberCalls5 = rig5.llm.calls
@@ -1344,13 +1344,13 @@ Future<void> _verifyAttachmentNotice() async {
   check('⑤ 每位发言者的 userTask 都含告知段',
       memberCalls5.every((c) => _lastUserTask(c).contains('【用户附件】')));
   check('⑤ 每位发言者的 userTask 都含附件文件名',
-      memberCalls5.every((c) => _lastUserTask(c).contains('招标文件.pdf')));
+      memberCalls5.every((c) => _lastUserTask(c).contains('长篇文档.pdf')));
   check('⑤ 每位发言者的 userTask 都以原文本开头',
       memberCalls5.every((c) => _lastUserTask(c).startsWith(groupText)));
   check('⑤ 总结者的 userTask 也含告知段',
       summaryCalls5.every((c) => _lastUserTask(c).contains('【用户附件】')));
   check('⑤ 总结者的 userTask 也含附件文件名',
-      summaryCalls5.every((c) => _lastUserTask(c).contains('招标文件.pdf')));
+      summaryCalls5.every((c) => _lastUserTask(c).contains('长篇文档.pdf')));
   check('⑤ 总结者 userTask 中的原任务文本逐字在',
       summaryCalls5.every((c) => _lastUserTask(c).contains('用户任务：$groupText')));
 
@@ -1518,13 +1518,13 @@ Future<void> _verifyDocumentReadingAndVision(Directory tmpDir) async {
   final docPath = await _writeRealFile(
       tmpDir,
       '标书要点.txt',
-      utf8.encode('招标控制价：4820 万元\n工期：365 日历天\n质量保证金：合同价格的 3%'));
+      utf8.encode('长篇控制价：4820 万元\n工期：365 日历天\n质量保证金：合同价格的 3%'));
   await rig1.repos.attachments.insertAttachment(_attReal(
       'att_doc1', u1.id, '标书要点.txt', AttachmentKind.file, docPath, 96));
   await rig1.runSingle(u1.id, userText);
   final task1 = _lastUserTask(rig1.llm.calls.single);
-  check('① userTask 含解析出的正文片段（招标控制价：4820 万元）',
-      task1.contains('招标控制价：4820 万元'));
+  check('① userTask 含解析出的正文片段（长篇控制价：4820 万元）',
+      task1.contains('长篇控制价：4820 万元'));
   check('① 含「【附件正文】」注入标记', task1.contains('【附件正文】'));
   check('① 含解析器名 plain-text', task1.contains('plain-text'));
   check('① 仍以原文本开头（追加而非替换）', task1.startsWith(userText));

@@ -92,7 +92,7 @@ Future<void> main() async {
     retriever: retriever,
   );
 
-  final kb1 = await knowledge.createBase(name: '招投标知识库');
+  final kb1 = await knowledge.createBase(name: '商务合规知识库');
   final kb2 = await knowledge.createBase(name: '技术规格知识库');
 
   section('导入真实中文文档');
@@ -114,8 +114,8 @@ Future<void> main() async {
   // —— 回归：批量不再返回 0（每条多字中文查询都必须命中）——
   section('回归：批量查询不再返回 0（源自古 fts_probe2 场景）');
   const regressionQueries = [
-    '投标',
-    '招标文件',
+    '商务',
+    '技术规格',
     '评分办法',
     '废标条款',
     '价格分',
@@ -133,7 +133,7 @@ Future<void> main() async {
   final tenderHits = await retriever.search('废标条款清单', knowledgeBaseIds: [kb1.id], topK: 3);
   check('查 “废标条款清单” 命中', tenderHits.isNotEmpty);
   if (tenderHits.isNotEmpty) {
-    check('来源为招标解读文档',
+    check('来源为长篇解读文档',
         tenderHits.first.citation.fileName.contains('bid-tender-expert'),
         'file=${tenderHits.first.citation.fileName}');
     check('相关度 ∈ (0,1]',
@@ -160,11 +160,11 @@ Future<void> main() async {
 
   // —— 阈值过滤 + 排序 ——
   section('coverage 阈值过滤');
-  final loose = await retriever.search('投标保证金递交开标时间节点',
+  final loose = await retriever.search('商务保证金递交开标时间节点',
       knowledgeBaseIds: [kb1.id], threshold: 0.0, topK: 5);
-  final strict50 = await retriever.search('投标保证金递交开标时间节点',
+  final strict50 = await retriever.search('商务保证金递交开标时间节点',
       knowledgeBaseIds: [kb1.id], threshold: 0.5, topK: 5);
-  final strict90 = await retriever.search('投标保证金递交开标时间节点',
+  final strict90 = await retriever.search('商务保证金递交开标时间节点',
       knowledgeBaseIds: [kb1.id], threshold: 0.9, topK: 5);
   check('阈值越高命中数单调不增', strict90.length <= strict50.length && strict50.length <= loose.length,
       '0.0→${loose.length}  0.5→${strict50.length}  0.9→${strict90.length}');
@@ -180,7 +180,7 @@ Future<void> main() async {
   section('拉丁 / 数字分词（真实规格书文本）');
   final kb3 = await knowledge.createBase(name: '参数验证库');
   final specFile = File('${tmp.path}${sep}参数.md')
-    ..writeAsStringSync('水罐容积 6000 L，额定压力 1.0 MPa，最高车速 100 km/h。');
+    ..writeAsStringSync('油箱容积 6000 L，额定压力 1.0 MPa，最高车速 100 km/h。');
   await knowledge.importDocument(
     knowledgeBaseId: kb3.id,
     filePath: specFile.path,
@@ -209,18 +209,18 @@ Future<void> main() async {
   final memRetriever = InMemoryRetriever(repos.knowledge);
   final memBase = await knowledge.createBase(name: '内存检索验证');
   const memChunks = [
-    KnowledgeChunk(id: 'mc1', documentId: 'mdoc', text: '消防车举高喷射臂架', sequence: 0, chunkHash: 'm1'),
-    KnowledgeChunk(id: 'mc2', documentId: 'mdoc', text: '水罐消防车额定流量', sequence: 1, chunkHash: 'm2'),
+    KnowledgeChunk(id: 'mc1', documentId: 'mdoc', text: '工程车长臂喷射臂架', sequence: 0, chunkHash: 'm1'),
+    KnowledgeChunk(id: 'mc2', documentId: 'mdoc', text: '油箱工程车额定流量', sequence: 1, chunkHash: 'm2'),
   ];
   await memRetriever.indexChunks(memChunks, knowledgeBaseId: memBase.id, documentId: 'mdoc');
-  final memHits = await memRetriever.search('举高', knowledgeBaseIds: [memBase.id]);
-  check('InMemoryRetriever 查 “举高” 命中 mc1',
+  final memHits = await memRetriever.search('长臂', knowledgeBaseIds: [memBase.id]);
+  check('InMemoryRetriever 查 “长臂” 命中 mc1',
       memHits.isNotEmpty && memHits.first.chunk.id == 'mc1');
   check('InMemoryRetriever health() = true', await memRetriever.health());
 
   // —— 检索质量小结（打印前若干命中，供人工核对）——
   section('检索质量小结（真实文档）');
-  for (final q in ['招标文件解读', '不平衡报价', '合同风险条款', '技术参数负偏离']) {
+  for (final q in ['长篇文档解读', '不平衡成本', '合同风险条款', '技术参数负偏离']) {
     final hits = await retriever.search(q, knowledgeBaseIds: [kb1.id, kb2.id], topK: 2);
     if (hits.isEmpty) {
       stdout.writeln('  查 “$q” → （无命中）');

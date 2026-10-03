@@ -2191,7 +2191,7 @@ class GroupService {
           evidence: citations,
           strictGrounding: eff.groundingPolicy == GroundingPolicy.strict,
           // 预算按模型上下文推导（用户反馈 #61）：群总量 40000 是 64K 时代的
-          // 写死值，会让招标文件这类长输入在第 1 位专家后被 isOverBudget 掐断。
+          // 写死值，会让长篇文档这类长输入在第 1 位专家后被 isOverBudget 掐断。
           budget: resolved.budget,
           // 第 9 轮：本轮图片随每位发言者的 user 消息走多模态（无图 → 空列表）。
           userImageUrls: userImageUrls,

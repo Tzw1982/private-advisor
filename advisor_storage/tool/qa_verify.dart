@@ -314,9 +314,9 @@ Future<void> _t2_migrationAndBackfill(Directory tmp, String sep) async {
       fileHash: 'MH', fileSize: 5, status: DocumentStatus.indexed,
       createdAt: now, updatedAt: now));
   await kb.insertChunks([
-    KnowledgeChunk(id: 'mig_c1', documentId: 'mig_doc', text: '消防车水罐容积6000升',
+    KnowledgeChunk(id: 'mig_c1', documentId: 'mig_doc', text: '工程车油箱容积6000升',
         sequence: 1, chunkHash: 'mh1'),
-    KnowledgeChunk(id: 'mig_c2', documentId: 'mig_doc', text: '消防泵额定流量60升每秒',
+    KnowledgeChunk(id: 'mig_c2', documentId: 'mig_doc', text: '液压泵额定流量60升每秒',
         sequence: 2, chunkHash: 'mh2'),
   ]);
   t('M4', 'v1 库已含 2 个分块', 2, _count(db, 'knowledge_chunks', 'document_id=?', ['mig_doc']));
@@ -346,7 +346,7 @@ Future<void> _t2_migrationAndBackfill(Directory tmp, String sep) async {
   t('M13', '迁移后 FTS 已回填 2 行', 2, ftsRowCount(db));
   // 回填的行能真的被检索到（回连业务表）
   final rt = Fts5Retriever(db);
-  final hit = await rt.search('水罐容积', knowledgeBaseIds: ['mig_kb']);
+  final hit = await rt.search('油箱容积', knowledgeBaseIds: ['mig_kb']);
   t('M14', '回填后可按查询命中存量分块', true, hit.isNotEmpty,
       note: 'hit=${hit.isEmpty ? null : hit.first.chunk.id}');
 

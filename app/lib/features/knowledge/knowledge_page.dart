@@ -158,7 +158,7 @@ class _KnowledgePageState extends State<KnowledgePage> {
           autofocus: true,
           decoration: const InputDecoration(
             labelText: '知识库名称',
-            hintText: '例如：消防车技术规格库',
+            hintText: '例如：工程车技术规格库',
             border: OutlineInputBorder(),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v),

@@ -150,7 +150,7 @@ class _CreateExpertDialogState extends State<CreateExpertDialog> {
                 TextFormField(
                   controller: _nameCtrl,
                   enabled: !_busy,
-                  decoration: _decoration('专家名称 *', hint: '例如：消防车选型顾问'),
+                  decoration: _decoration('专家名称 *', hint: '例如：工程车选型顾问'),
                 ),
                 const SizedBox(height: AppDims.space3),
                 TextFormField(
@@ -161,7 +161,7 @@ class _CreateExpertDialogState extends State<CreateExpertDialog> {
                   textAlignVertical: TextAlignVertical.top,
                   decoration: _decoration(
                     '系统提示词 *',
-                    hint: '例如：你是消防车选型顾问，擅长根据使用场景、载水量与'
+                    hint: '例如：你是工程车选型顾问，擅长根据使用场景、载水量与'
                         '整车配置给出选型建议，回答需引用国标参数。',
                   ),
                 ),
@@ -170,7 +170,7 @@ class _CreateExpertDialogState extends State<CreateExpertDialog> {
                   controller: _professionCtrl,
                   enabled: !_busy,
                   decoration:
-                      _decoration('擅长业务 / 职业（选填）', hint: '例如：消防装备 · 车辆选型'),
+                      _decoration('擅长业务 / 职业（选填）', hint: '例如：工业装备 · 车辆选型'),
                 ),
                 const SizedBox(height: AppDims.space3),
                 DropdownButtonFormField<String>(

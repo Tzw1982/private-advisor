@@ -616,7 +616,7 @@ Future<void> _verifyBackfill(_Env env) async {
 Future<void> _verifyEndToEnd(_Env env) async {
   section('端到端重扫（link → 新增 → touch 回填 → 改内容删旧重建 → 重复内容 skipped → last_scan_at）');
 
-  final dir = env.makeFolder('e2e', {'规格.md': '消防车额定流量六十升每秒，水罐容积六千升。'});
+  final dir = env.makeFolder('e2e', {'规格.md': '工程车额定流量六十升每秒，油箱容积六千升。'});
   final base = await env.knowledge.createBase(name: '端到端库');
   final folder = await env.sync.linkFolder(base.id, dir.path);
 
@@ -646,7 +646,7 @@ Future<void> _verifyEndToEnd(_Env env) async {
   // —— 改内容 → sha 确认变化 → 删旧重建 ——
   final oldDocId = docs.first.id;
   final oldChunkIds = (await env.krepo.listChunks(oldDocId)).map((c) => c.id).toSet();
-  file.writeAsStringSync('消防车额定流量一百二十升每秒，举高喷射臂架三十二米。');
+  file.writeAsStringSync('工程车额定流量一百二十升每秒，长臂喷射臂架三十二米。');
   final s3 = await env.sync.rescan(folder.id);
   checkEq('E2E：改内容 → updated=1', s3.updated, 1);
   checkEq('E2E：added/deleted 走内部重建（摘要不再计 deleted）', s3.deleted, 0);
@@ -661,7 +661,7 @@ Future<void> _verifyEndToEnd(_Env env) async {
 
   // —— 同内容第二个文件 → 导入链去重 → skipped（不夺归属）——
   File('${dir.path}${Platform.pathSeparator}副本.md')
-      .writeAsStringSync('消防车额定流量一百二十升每秒，举高喷射臂架三十二米。');
+      .writeAsStringSync('工程车额定流量一百二十升每秒，长臂喷射臂架三十二米。');
   final s4 = await env.sync.rescan(folder.id);
   checkEq('E2E：重复内容 → skipped=1（去重，不新增文档）', s4.skipped, 1);
   checkEq('E2E：added=0', s4.added, 0);

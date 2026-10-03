@@ -205,8 +205,8 @@ Future<_GH> _buildGroup(
   await repos.settings.set(SettingKeys.defaultCredentialProfileId, 'cr_gf');
 
   for (final e in [
-    (id: 'eL', name: '李组', tags: ['消防车']),
-    (id: 'eM1', name: '张工', tags: ['消防车泵']),
+    (id: 'eL', name: '李组', tags: ['工程车']),
+    (id: 'eM1', name: '张工', tags: ['液压泵组']),
     (id: 'eM2', name: '王律', tags: ['合同法']),
   ]) {
     await repos.experts.upsertExpert(Expert(
@@ -284,7 +284,7 @@ Future<void> _h1_singleMemberFails() async {
 
   // 调用序：0=eL 成功, 1=eM1 部分产出后失败, 2=eM2 成功, 3=总结者成功
   final h = await _buildGroup([
-    _Outcome.ok('李组：先给结论，消防车泵流量需大于 60L/s。'),
+    _Outcome.ok('李组：先给结论，液压泵组流量需大于 60L/s。'),
     _Outcome.fail(ProviderServerError('模拟成员服务端错误'), partial: '张工：这个'),
     _Outcome.ok('王律：从合同法角度，该条款需明确违约责任。'),
     _Outcome.ok('（总结）已汇总两位专家意见。'),
@@ -425,7 +425,7 @@ Future<void> _h3_summaryFailedContract() async {
   // ── H3.1 主线：3 成员全部成功发言 + 仅总结者抛错 ──────────────────────────
   // 调用序：0=eL, 1=eM1, 2=eM2 全部成功；3=总结者抛错。
   final h1 = await _buildGroup([
-    _Outcome.ok('李组：先给结论——消防车泵流量指标需大于 60L/s。'),
+    _Outcome.ok('李组：先给结论——液压泵组流量指标需大于 60L/s。'),
     _Outcome.ok('张工：泵体结构上建议采用双级离心，兼顾压力与流量。'),
     _Outcome.ok('王律：合同条款需明确验收标准与违约责任。'),
     _Outcome.fail(ProviderServerError('模拟总结者服务端错误')),
@@ -534,7 +534,7 @@ Future<void> _h3_summaryFailedContract() async {
   // ── H3.5 回归护栏：单成员失败 + 其余成员与总结者成功 → 不得误报总结失败 ──────
   // 目的：证明「成员失败」与「总结失败」两条路径**互不交叉污染**。
   final h5 = await _buildGroup([
-    _Outcome.ok('李组：先给结论，消防车泵流量需大于 60L/s。'),
+    _Outcome.ok('李组：先给结论，液压泵组流量需大于 60L/s。'),
     _Outcome.fail(ProviderServerError('模拟成员服务端错误'), partial: '张工：这个'),
     _Outcome.ok('王律：从合同法角度，该条款需明确违约责任。'),
     _Outcome.ok('（总结）已汇总两位专家意见。'),

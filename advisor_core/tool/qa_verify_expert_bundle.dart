@@ -187,9 +187,9 @@ Repositories _reposWith(ExpertRepository experts) {
 /// 播种：1 位自建专家（可选运行配置 / 用户状态 / 标签 / 知识库绑定 / 凭据）。
 Future<({Expert expert, KnowledgeBase? kb, CredentialProfile? cred})> _seedExpert(
   Repositories repos, {
-  String name = '招标文件解读专家',
-  String prompt = '你是政府采购与招投标顾问，逐条响应招标要求。',
-  String profession = '政府采购与招投标顾问',
+  String name = '长篇文档解读专家',
+  String prompt = '你是企业采购与商务合规顾问，逐条响应长篇要求。',
+  String profession = '企业采购与商务合规顾问',
   bool withProfile = true,
   String? kbName,
   String apiKey = 'sk-live-SUPERSECRET-abcdefghijklmnop1234567890',
@@ -209,10 +209,10 @@ Future<({Expert expert, KnowledgeBase? kb, CredentialProfile? cred})> _seedExper
     name: name,
     systemPrompt: prompt,
     profession: profession,
-    quickPrompts: const ['拆解这份招标文件'],
+    quickPrompts: const ['拆解这份长篇文档'],
     welcomeMessage: '把文件发我。',
   );
-  await experts.setTags(expert.id, ['招标文件', '资格条件']);
+  await experts.setTags(expert.id, ['长篇文档', '资格条件']);
 
   if (withProfile) {
     await experts.updateRuntimeConfig(ExpertRuntimeConfig(
@@ -300,7 +300,7 @@ Future<void> _t1SecretNeverExported() async {
 
   const secret = 'sk-live-SUPERSECRET-abcdefghijklmnop1234567890';
   final repos = inMemoryRepositories();
-  final seeded = await _seedExpert(repos, kbName: '投标知识库', apiKey: secret);
+  final seeded = await _seedExpert(repos, kbName: '商务知识库', apiKey: secret);
 
   final result = await ExpertExportService(repos)
       .build(expertIds: [seeded.expert.id], includeLocal: true);
@@ -640,7 +640,7 @@ Future<void> _t6ConflictStrategies() async {
 
   // 源：导出「人类学家」带 profile（含知识库绑定）。
   final src = inMemoryRepositories();
-  final seeded = await _seedExpert(src, name: '人类学家', kbName: '投标知识库');
+  final seeded = await _seedExpert(src, name: '人类学家', kbName: '商务知识库');
   final one = await ExpertExportService(src)
       .build(expertIds: [seeded.expert.id], includeLocal: true);
 
@@ -763,7 +763,7 @@ Future<void> _t7SingleItemAtomicity() async {
   section('7 单条原子性（新副本失败 + 覆盖失败 → 查 5 集合）');
 
   final src = inMemoryRepositories();
-  final seeded = await _seedExpert(src, name: '原子专家', kbName: '投标知识库');
+  final seeded = await _seedExpert(src, name: '原子专家', kbName: '商务知识库');
   final one = await ExpertExportService(src)
       .build(expertIds: [seeded.expert.id], includeLocal: true);
 
@@ -787,7 +787,7 @@ Future<void> _t7SingleItemAtomicity() async {
   final reposB = _reposWith(fr2);
   // 目标机需要：同名 KB（供 S5 解析）+ 既有专家（含 cfg/state/tags/binding）。
   final now = DateTime.now().millisecondsSinceEpoch;
-  final kb = KnowledgeBase(id: Ids.next('kb'), name: '投标知识库', createdAt: now, updatedAt: now);
+  final kb = KnowledgeBase(id: Ids.next('kb'), name: '商务知识库', createdAt: now, updatedAt: now);
   await reposB.knowledge.upsertBase(kb);
   final expertsB = ExpertService(reposB);
   final existing = await expertsB.createLocal(
@@ -833,7 +833,7 @@ Future<void> _t7SingleItemAtomicity() async {
   // 7c：覆盖 + 绑定写入失败（最凶险——旧绑定已被删、新绑定写一半）
   final fr3 = _FaultRepo();
   final reposC = _reposWith(fr3);
-  final kbC = KnowledgeBase(id: Ids.next('kb'), name: '投标知识库', createdAt: now, updatedAt: now);
+  final kbC = KnowledgeBase(id: Ids.next('kb'), name: '商务知识库', createdAt: now, updatedAt: now);
   await reposC.knowledge.upsertBase(kbC);
   final expertsC = ExpertService(reposC);
   final existingC = await expertsC.createLocal(name: '原子专家', systemPrompt: '旧提示词3。');

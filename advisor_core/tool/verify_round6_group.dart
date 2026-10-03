@@ -309,7 +309,7 @@ Future<void> _verifyAnnouncementAndRoles() async {
   section('2. 群公告（硬契约）+ 群角色注入（每位发言者含总结者）');
 
   final (h, group, leader, law, med) = await _mkGroup();
-  const ann = '本群只服务招投标项目，与招投标无关的话题一律不参与。';
+  const ann = '本群只服务商务合规项目，与商务合规无关的话题一律不参与。';
   await h.group.updateAnnouncement(group.id, ann);
   checkEq('公告已落库', (await h.group.config(group.id))?.announcement, ann);
 
@@ -360,7 +360,7 @@ Future<void> _verifySilentContract() async {
 
   // 让「医生」在被选中时回【不参与】。
   final (h, group, leader, law, med) = await _mkGroup(nonParticipants: {'医生'});
-  const ann = '本群只服务招投标项目。';
+  const ann = '本群只服务商务合规项目。';
   await h.group.updateAnnouncement(group.id, ann);
 
   // 话题同时命中法律与医学 → 组长 + 法律 + 医生入选（cap 默认 3）。
@@ -449,9 +449,9 @@ Future<void> _verifyManagementMethods() async {
       '上限 99 被拒', () => h.group.updateMaxSpeakers(group.id, 99), 'group.max_speakers.invalid');
 
   // 公告：写入 + 更新时间。
-  await h.group.updateAnnouncement(group.id, '共识：先资格后报价。');
+  await h.group.updateAnnouncement(group.id, '共识：先资格后成本。');
   final cfg = await h.group.config(group.id);
-  checkEq('公告写入', cfg?.announcement, '共识：先资格后报价。');
+  checkEq('公告写入', cfg?.announcement, '共识：先资格后成本。');
   check('公告更新时间已写', cfg?.announcementUpdatedAt != null);
   // 清空公告（空串）。
   await h.group.updateAnnouncement(group.id, '   ');

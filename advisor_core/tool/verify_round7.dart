@@ -84,7 +84,7 @@ KnowledgeDocument _doc(
 
 const KnowledgeBase _base = KnowledgeBase(
   id: 'kb1',
-  name: '消防车规格库',
+  name: '工程车规格库',
   createdAt: 1,
   updatedAt: 1,
 );
@@ -153,7 +153,7 @@ void verifyPalette() {
   checkEq('emoji  of("🔥")', AvatarPaletteIndex.of('🔥'), 3);
   check('超长串可算且在范围内', _inRange(AvatarPaletteIndex.of('x' * 10000)));
   check(
-      '非 ASCII 混合可算且在范围内', _inRange(AvatarPaletteIndex.of('投标-决策群_2024·中文🔥')));
+      '非 ASCII 混合可算且在范围内', _inRange(AvatarPaletteIndex.of('商务-决策群_2024·中文🔥')));
 
   section('AvatarPaletteIndex · 分布（真实 packageId）');
   final seedsFromCatalog = _loadPackageIds();
@@ -243,7 +243,7 @@ void verifyTree() {
 
   section('知识树 · 结构 / 空目录');
   checkEq('根为 base', root.kind, KbNodeKind.base);
-  checkEq('根 label = 库名', root.label, '消防车规格库');
+  checkEq('根 label = 库名', root.label, '工程车规格库');
 
   final folderNodes =
       root.children.where((c) => c.kind == KbNodeKind.folder).toList();

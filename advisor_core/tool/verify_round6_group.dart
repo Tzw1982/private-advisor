@@ -233,6 +233,10 @@ Future<void> main() async {
   await _verifyManagementMethods();
   await _verifySummarizerFailure();
   await _verifyGroupRunFailedEvent();
+  // 2026-10-03 走查三缺陷修复回归（T07）。
+  await _verifyLeaderKnowsRoster();
+  await _verifyNoIdentityImpersonation();
+  await _verifyUserMentionAndNomination();
 
   stdout.writeln('\n${'=' * 64}');
   stdout.writeln('结果：通过 $_passed ／ 失败 $_failed');
@@ -531,4 +535,143 @@ Future<void> _verifyGroupRunFailedEvent() async {
   final steps = await h.repos.generations.listSteps(finished.run.id);
   check('全员失败 → 无总结（accepted<2）',
       steps.where((s) => s.stage == StepStage.synthesis).isEmpty);
+}
+
+// ---------------------------------------------------------------------------
+// 7. 组长认成员：系统提示词含完整成员名单（显示名 + 擅长）
+// ---------------------------------------------------------------------------
+
+Future<void> _verifyLeaderKnowsRoster() async {
+  section('7. 组长认成员：system 含完整成员名单（显示名 + 擅长，无裸露 expertId）');
+
+  final (h, group, leader, law, med) = await _mkGroup();
+  // 相关性话题 → 组长 + 法律顾问入选，组长发言可被捕获。
+  await runChat(h, conversationId: group.id, userText: '这份合同的条款风险怎么审');
+
+  final memberCalls = h.groupLlm.calls
+      .where((c) => !c.messages.first.content.contains('只输出 JSON'))
+      .toList();
+  check('存在成员发言调用', memberCalls.isNotEmpty);
+
+  final leaderSys = memberCalls
+      .firstWhere((c) => c.messages.first.content.contains('你是本群组长'),
+          orElse: () => memberCalls.first)
+      .messages
+      .first
+      .content;
+  check('组长 system 含成员名单抬头', leaderSys.contains('【群成员名单】'));
+  check('名单给本人加「（你本人）」标注', leaderSys.contains('（你本人）'));
+  check('名单含组长显示名', leaderSys.contains('组长'));
+  check('名单含法律顾问显示名', leaderSys.contains('法律顾问'));
+  check('名单含本轮未发言的「医生」显示名（完整名单）', leaderSys.contains('医生'));
+  check('名单含擅长领域标签', leaderSys.contains('擅长') && leaderSys.contains('法律'));
+  check(
+      '名单不含裸露 expertId',
+      !leaderSys.contains(leader) &&
+          !leaderSys.contains(law) &&
+          !leaderSys.contains(med));
+
+  check('每位成员 system 均含成员名单（硬契约）',
+      memberCalls.every((c) => c.messages.first.content.contains('【群成员名单】')));
+}
+
+// ---------------------------------------------------------------------------
+// 8. 防冒认：发言格式纪律（每位发言者）+ 总结者身份纪律 + 无【】模仿格式
+// ---------------------------------------------------------------------------
+
+Future<void> _verifyNoIdentityImpersonation() async {
+  section('8. 防冒认：发言格式纪律 + 总结者身份纪律 + 去除【名字】模仿格式');
+
+  // (1) 群成员块含强化后的发言格式纪律，且明确「不得自称组长」。
+  final blk = GroupPromptComposer.block(
+      selfName: '李四', role: MemberRole.member, leaderName: '张三');
+  check('成员块含发言格式纪律',
+      blk.contains(GroupPromptComposer.noSpeakerLabelEchoRule));
+  check('纪律含「不得自称组长」（防冒认组长）',
+      GroupPromptComposer.noSpeakerLabelEchoRule.contains('不得自称组长'));
+  check('纪律含「不得伪造【】标注」',
+      GroupPromptComposer.noSpeakerLabelEchoRule.contains('不得伪造【】'));
+
+  // (2) 总结者 system 含身份纪律，且总结输入不再用会被模仿的【名字】格式。
+  final msgs = Summarizer.buildPrompt(userTask: '评审合同', outputs: const [
+    ExpertOutput(expertId: 'L', expertName: '张三', content: '先定分工。'),
+  ]);
+  final sys = msgs.first.content;
+  final user = msgs.last.content;
+  check('总结者 system 含身份纪律', sys.contains(kSummarizerIdentityRule));
+  check('总结者 system 含「不得冒充组长」约束', sys.contains('冒充'));
+  check('总结者 system 仍含「只输出 JSON」', sys.contains('只输出 JSON'));
+  check('总结者输入不再以【名字】标注发言者', !user.contains('【张三】'));
+  check('总结者输入改用「发言者「张三」：」', user.contains('发言者「张三」：'));
+
+  // (3) E2E：每位发言者（组长 + 组员）system 均含发言格式纪律。
+  final (h, group, leader, law, med) = await _mkGroup();
+  await runChat(h, conversationId: group.id, userText: '这份合同的条款风险怎么审');
+  final memberCalls = h.groupLlm.calls
+      .where((c) => !c.messages.first.content.contains('只输出 JSON'))
+      .toList();
+  check('E2E 每位成员 system 含发言格式纪律',
+      memberCalls.isNotEmpty &&
+          memberCalls.every((c) => c.messages
+              .first
+              .content
+              .contains(GroupPromptComposer.noSpeakerLabelEchoRule)));
+  check('E2E 组长 system 含发言格式纪律', memberCalls.any((c) =>
+      c.messages.first.content.contains('你是本群组长') &&
+      c.messages.first.content.contains(GroupPromptComposer.noSpeakerLabelEchoRule)));
+}
+
+// ---------------------------------------------------------------------------
+// 9. 组长主持：用户 @ 必入选 + 组长 @提名跨轮生效 + 默认上限
+// ---------------------------------------------------------------------------
+
+Future<void> _verifyUserMentionAndNomination() async {
+  section('9. 组长主持：用户 @ 必入选 / 组长 @提名跨轮生效 / 默认上限 3');
+
+  // (1) 用户 @ 一位"相关度为零"的成员 → 该成员仍必发言（用户指令优先级最高）。
+  {
+    final (h, group, leader, law, med) = await _mkGroup();
+    final updates =
+        await runChat(h, conversationId: group.id, userText: '@医生 今天天气不错');
+    final finished = updates.whereType<RunFinishedUpdate>().firstOrNull;
+    final gen = _genExpertIds(
+        await h.repos.generations.listSteps(finished!.run.id));
+    check('用户 @医生（话题无关）→ 医生必发言', gen.contains(med), 'gen=$gen');
+  }
+
+  // (2) 「@名 + 标点 + 附加文本」也要能被识别。
+  {
+    final (h, group, leader, law, med) = await _mkGroup();
+    final updates =
+        await runChat(h, conversationId: group.id, userText: '@医生，请说说看');
+    final finished = updates.whereType<RunFinishedUpdate>().firstOrNull;
+    final gen = _genExpertIds(
+        await h.repos.generations.listSteps(finished!.run.id));
+    check('「@医生，…」带标点附加文本 → 医生发言', gen.contains(med), 'gen=$gen');
+  }
+
+  // (3) 组长上一轮正文里的 @提名 → 下一轮该成员被安排发言（跨轮接线，此前恒空）。
+  {
+    final (h, group, leader, law, med) = await _mkGroup();
+    await h.conversations.appendExpertMessage(
+        group.id, leader, '本轮请 @法律顾问 补充合同条款意见。');
+    final updates = await runChat(h, conversationId: group.id, userText: '继续');
+    final finished = updates.whereType<RunFinishedUpdate>().firstOrNull;
+    final gen = _genExpertIds(
+        await h.repos.generations.listSteps(finished!.run.id));
+    check('组长 @提名法律顾问 → 下一轮法律顾问发言', gen.contains(law), 'gen=$gen');
+  }
+
+  // (4) 相关性话题 → 组长之外仍有成员入选（默认上限 3）。
+  {
+    final (h, group, leader, law, med) = await _mkGroup();
+    final updates =
+        await runChat(h, conversationId: group.id, userText: '这份合同的条款风险怎么审');
+    final finished = updates.whereType<RunFinishedUpdate>().firstOrNull;
+    final gen = _genExpertIds(
+        await h.repos.generations.listSteps(finished!.run.id));
+    check('相关性话题：组长 + 法律顾问均入选',
+        gen.contains(leader) && gen.contains(law), 'gen=$gen');
+    check('默认上限=3：发言者数 ≤ 3', gen.length <= 3, 'gen=$gen');
+  }
 }

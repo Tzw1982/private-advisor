@@ -19,6 +19,36 @@ import 'generation.dart';
 import 'relevance.dart';
 
 // ---------------------------------------------------------------------------
+// @ 点名匹配（唯一实现，勿另写第二套）
+// ---------------------------------------------------------------------------
+
+/// 判断 [text] 是否以 `@name` 形式点名 [name]。
+///
+/// 规则（2026-10-03 走查修复）：
+/// - 支持「@张工 请发言」这类**带附加文本**的写法（只要求 `@name` 出现即可）；
+/// - 要求 `@name` 之后是**词边界**（空白 / 标点 / 行尾），避免
+///   「@医生」误吃掉「@医生助理」这类更长名字的前缀（点名精确性）。
+///
+/// [name] 会先 `trim`；空名 → false。
+bool mentionsName(String text, String name) {
+  final n = name.trim();
+  if (n.isEmpty) return false;
+  final needle = '@$n';
+  var from = 0;
+  while (true) {
+    final i = text.indexOf(needle, from);
+    if (i < 0) return false;
+    final end = i + needle.length;
+    if (end >= text.length) return true;
+    // 名字后紧跟 CJK / 字母 / 数字 → 属于更长名字的一部分，不算命中。
+    if (!_wordChar.hasMatch(text[end])) return true;
+    from = i + 1;
+  }
+}
+
+final RegExp _wordChar = RegExp(r'[\u4e00-\u9fffA-Za-z0-9]');
+
+// ---------------------------------------------------------------------------
 // 发言范围指令
 // ---------------------------------------------------------------------------
 
@@ -122,7 +152,7 @@ abstract final class GroupDirectiveResolver {
     for (final m in active) {
       final name = m.name.trim();
       if (name.isEmpty) continue;
-      if (text.contains('@$name')) {
+      if (mentionsName(text, name)) {
         if (!named.contains(m.expertId)) {
           named.add(m.expertId);
           namedNames.add(name);
@@ -186,6 +216,42 @@ abstract final class GroupPromptComposer {
     return '【本群共识/公告】（全体成员每轮均须遵守，最新优先）\n$a';
   }
 
+  /// 群成员名单块（2026-10-03 走查修复 · 根因「组长认不清群聊成员」）。
+  ///
+  /// 旧实现只给组长一句「负责组织讨论、点名邀请成员发言」，却**从不把成员名单
+  /// 塞进提示词**——组长根本不知道该邀请谁、也无法用 `@显示名` 点名。
+  ///
+  /// 本块对**每位发言者（含组长）**注入完整、**按 sortOrder 排序**的成员名单，
+  /// 每行 = 角色 + **显示名（备注优先）** + 擅长领域；**绝不使用 expertId**
+  /// （裸 id 既让模型认错人，也会诱发模仿 `【id】` 格式冒领他人身份）。
+  ///
+  /// [selfId] 用于给本人加「（你本人）」标注，避免组长把自己当成待邀请成员。
+  /// 名单为空 / 全员无名 → 返回空串（调用方跳过）。
+  static String memberRosterBlock(
+    List<GroupMember> members, {
+    String? selfId,
+  }) {
+    final valid = members
+        .where((m) => m.enabled && m.name.trim().isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    if (valid.isEmpty) return '';
+
+    final b = StringBuffer(
+        '【群成员名单】本群共 ${valid.length} 人。点名/分派请使用「显示名」，不要使用编号：');
+    for (final m in valid) {
+      final roleTag = m.role == MemberRole.leader ? '组长' : '成员';
+      final skill = m.expertise
+          .map((e) => e.trim())
+          .where((e) => e.isNotEmpty)
+          .join('、');
+      final self = m.expertId == selfId ? '（你本人）' : '';
+      b.write('\n- $roleTag：${m.name.trim()}$self');
+      if (skill.isNotEmpty) b.write('｜擅长：$skill');
+    }
+    return b.toString();
+  }
+
   /// 本轮发言范围块（[directive] 为 null 时说明按策略自动选择）。
   static String scopeBlock(SpeakerDirective? directive, List<String> speakerNames) {
     final names = speakerNames.where((n) => n.trim().isNotEmpty).join('、');
@@ -208,10 +274,13 @@ abstract final class GroupPromptComposer {
   ///
   /// 与 [concisionRule] 互相独立：本条专治**身份冒领**，且必须出现在**每位发言者**
   /// 的 system 里（故并入 [block]），否则群聊里角色错位会反复出现。
+  /// 第 8 轮走查修复（2026-10-03）：补上「不得自称组长/其他成员、不得伪造【】标注」，
+  /// 覆盖「其它成员冒认组长」这一反复出现的走查缺陷。
   static const String noSpeakerLabelEchoRule =
       '【发言格式】直接以**你本人**的身份发言：不要在回复前添加任何【】包裹的'
-      '姓名或编号标注（发言人由系统自动标注），不要在正文里自称他人，'
-      '也不要复述或改写其他成员说过的话。';
+      '姓名或编号标注（发言人由系统自动标注），不得伪造【】标注；'
+      '不得自称组长或其他成员（无论你是否被点名为他人），'
+      '不要复述或改写其他成员说过的话，也不要替他人发言或署名。';
 
   /// 相关性自判（B3 第 3 层：语义由成员自判，无关则静默）。
   ///
@@ -221,6 +290,13 @@ abstract final class GroupPromptComposer {
       '简洁发言；无关则**只回复「$kNonParticipationToken」**，不要强行发言或复述他人。';
 
   /// 便捷聚合：按固定顺序拼出完整群级块（空段自动跳过）。
+  ///
+  /// 顺序：角色声明 → **群成员名单** → 群公告 → 本轮发言范围 → 表达纪律 →
+  /// 发言格式纪律 → 相关性自判。
+  ///
+  /// [memberRoster]（2026-10-03 新增，默认空 → 旧调用**行为零变化**）：
+  /// 传入群成员全集后注入 [memberRosterBlock]，让组长（及每位成员）看得到
+  /// 完整成员清单（显示名 + 擅长），从而能正确点名/分派。
   static String block({
     required String selfName,
     required MemberRole role,
@@ -229,9 +305,12 @@ abstract final class GroupPromptComposer {
     SpeakerDirective? directive,
     List<String> speakerNames = const [],
     bool includeNonParticipation = true,
+    List<GroupMember> memberRoster = const [],
+    String? selfId,
   }) {
     final parts = <String>[
       roleBlock(selfName: selfName, role: role, leaderName: leaderName),
+      memberRosterBlock(memberRoster, selfId: selfId),
       consensusBlock(announcement),
       scopeBlock(directive, speakerNames),
       concisionRule,

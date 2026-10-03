@@ -8,6 +8,7 @@ import 'dart:math' as math;
 
 import 'conversation.dart';
 import 'generation.dart';
+import 'group_directive.dart';
 import 'relevance.dart';
 
 /// 发言策略端口。
@@ -59,7 +60,7 @@ class ManualStrategy implements SpeakingStrategy {
     final active = ctx.activeMembers;
     final picked = <String>[];
     for (final m in active) {
-      if (text.contains('@${m.name}')) picked.add(m.expertId);
+      if (mentionsName(text, m.name)) picked.add(m.expertId);
     }
     if (picked.isEmpty) {
       return const SpeakerPlan(
@@ -239,14 +240,17 @@ class AutoStrategy implements SpeakingStrategy {
 /// 组长主持策略的稳定 id（集中定义，避免字面量漂移；编排层据此构造带 cap 的实例）。
 const String kLeaderLedStrategyId = 'leader_led';
 
-/// 组长主持：**强制入选 + 相关性粗筛 + 兜底仅组长**（防刷屏）。
+/// 组长主持：**强制入选 + 相关性粗筛 + 兜底组长带 1 人**（防刷屏、不独角戏）。
 ///
 /// 发言选择（优先级从高到低，第 6 轮共享约定 §2.1）：
 /// 1. **强制入选**：用户 `@成员`；组长上一轮正文 `@成员`（组长「分派/点名」机制）；
 /// 2. **组长先行**：组长总在本轮首位发言（主持位）；
 /// 3. **相关性粗筛**：[MemberRelevanceScorer] 打分 ≥ [minRelevance] 者按相关度
 ///    降序补齐，直至达到 [maxSpeakers]（**上限 = 本轮总发言人数**，含强制入选者）；
-/// 4. **不冷场兜底**：相关性全员不命中 → **仅组长**发言（不退化全员）。
+/// 4. **不冷场兜底**：**既无强制入选、也无相关性命中** → 组长 + 相关性最高的一位
+///    非组长成员（不退化全员；[maxSpeakers] ≤ 1 时退化为仅组长，属配置语义）。
+///
+/// 注意：兜底**不覆盖**强制入选——存在 @ 强制入选者时绝不走兜底，保证「@ 必选」。
 ///
 /// 输入侧始终被 `group_configs.max_speakers_per_round` 约束（编排层传入）。
 class LeaderLedStrategy implements SpeakingStrategy {
@@ -290,7 +294,7 @@ class LeaderLedStrategy implements SpeakingStrategy {
     // ① 强制入选：用户 @成员
     for (final m in active) {
       if (m.name.trim().isEmpty) continue;
-      if (text.contains('@${m.name}')) pick(m, '用户@');
+      if (mentionsName(text, m.name)) pick(m, '用户@');
     }
 
     // ① 强制入选：组长上一轮 @提名（组长分派任务 / 点名）
@@ -303,7 +307,7 @@ class LeaderLedStrategy implements SpeakingStrategy {
       if (leaderText.isNotEmpty) {
         for (final m in active) {
           if (m.expertId == leaderId || m.name.trim().isEmpty) continue;
-          if (leaderText.contains('@${m.name}')) pick(m, '组长@提名');
+          if (mentionsName(leaderText, m.name)) pick(m, '组长@提名');
         }
       }
     }
@@ -333,13 +337,27 @@ class LeaderLedStrategy implements SpeakingStrategy {
       }
     }
 
-    // ④ 兜底：**既无强制入选、也无相关性命中** → 仅组长（不冷场、不退化全员）。
+    // ④ 兜底：**既无强制入选、也无相关性命中** → 组长 + 相关性最高的 1 位非组长成员。
     //    有强制入选者时**绝不**走兜底，保证 @ 必选。
+    //
+    //    业务理由（2026-10-03 用户走查）：用户选「组长主持」后报「其它成员都不发言，
+    //    哪怕是我提示的情况下」——原实现零命中时只让组长发言，用户看到的就是"组长独角戏"，
+    //    与"组长主持"的预期不符。现改为至少带 1 位成员（相关性最高的非组长）参与，
+    //    保证讨论成立；总人数仍受 [maxSpeakers] 上限约束（上限=1 时只有组长，属配置语义）。
     if (forcedCount == 0 && relevantPicked == 0 && leader != null) {
+      // 闭包内无法对捕获的可空变量做类型提升 → 先取非空局部量。
+      final leaderId = leader.expertId;
+      final others = MemberRelevanceScorer.rank(text, active)
+          .where((m) => m.expertId != leaderId)
+          .toList();
+      final fallback = <String>[leaderId];
+      if (maxSpeakers > 1 && others.isNotEmpty) {
+        fallback.add(others.first.expertId);
+      }
       return SpeakerPlan(
-        primarySpeakers: [leader.expertId],
+        primarySpeakers: fallback.take(maxSpeakers).toList(),
         maxRounds: 1,
-        rationale: '组长主持：相关性无命中 → 仅组长发言（不冷场）',
+        rationale: '组长主持：相关性无命中 → 组长 + 1 位成员（不冷场、不独角戏）',
       );
     }
 

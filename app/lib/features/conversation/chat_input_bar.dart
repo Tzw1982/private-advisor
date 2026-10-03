@@ -155,6 +155,10 @@ class ChatInputBar extends StatelessWidget {
             // 焦点节点自带 onKeyEvent（Enter 发送 / Shift+Enter 换行）。
             focusNode: inputFocus,
             controller: inputController,
+            // 与 @ 面板同一 tap 分组（走查缺陷修复：鼠标点候选行无反应）：
+            // 桌面端默认 onTapOutside 会因"点面板"而让输入框失焦 → 帧末关面板 →
+            // 候选行 InkWell 手势被取消。见 [mentionPickerTapGroup]。
+            groupId: mentionPickerTapGroup,
             // 生成中仍可继续输入（微信逻辑）：只禁发送，不禁打字。
             enabled: true,
             minLines: 1,

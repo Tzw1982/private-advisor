@@ -2024,12 +2024,41 @@ class GroupService {
       updatedAt: DateTime.now().millisecondsSinceEpoch,
     );
 
+    // 上一轮专家输出（2026-10-03 走查修复 · 根因「组长无法指派成员发言」）：
+    // 「组长主持」策略靠识别**组长正文里的 `@提名`** 来把成员拉进来，但此前
+    // `GroupContext.previousSpeakerOutputs` 恒为空 → 该机制在真机上永不生效。
+    // 这里从历史消息回填「当前用户消息之前、最近一段连续专家发言」。
+    final prevOutputs = <ExpertOutput>[];
+    {
+      final lastUserIdx = history.lastIndexWhere((m) => m.isFromUser);
+      final before = lastUserIdx > 0
+          ? history.sublist(0, lastUserIdx)
+          : const <Message>[];
+      final prevUserIdx = before.lastIndexWhere((m) => m.isFromUser);
+      for (var i = prevUserIdx + 1; i < before.length; i++) {
+        final m = before[i];
+        if (!m.isFromExpert) continue;
+        final name = groupMembers
+                .where((g) => g.expertId == m.senderId)
+                .firstOrNull
+                ?.name ??
+            m.senderId ??
+            '';
+        prevOutputs.add(ExpertOutput(
+          expertId: m.senderId ?? '',
+          expertName: name,
+          content: m.content,
+        ));
+      }
+    }
+
     final ctx = GroupContext(
       conversationId: conversationId,
       userMessage: userMessage,
       recentMessages: history,
       members: groupMembers,
       budget: TokenBudget(maxTotalGroupBudget: cfg.tokenBudget ?? 40000),
+      previousSpeakerOutputs: prevOutputs,
       lastSpeakerId: history.reversed
           .where((m) => m.isFromExpert)
           .map((m) => m.senderId)
@@ -2181,6 +2210,10 @@ class GroupService {
           announcement: cfg.announcement,
           directive: directive,
           speakerNames: speakerNames,
+          // 2026-10-03 走查修复：注入完整成员名单（显示名 + 擅长），
+          // 让组长（及每位成员）分得清群里有哪些人、能按显示名点名邀请。
+          memberRoster: groupMembers,
+          selfId: member.expertId,
         );
         final messages = ContextManager.build(
           systemPrompt: eff.prompt,

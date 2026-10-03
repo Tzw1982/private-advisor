@@ -11,7 +11,7 @@
 ///    进入）/ scopeBlock / nonParticipationRule（含 `kNonParticipationToken`）/ block 聚合；
 /// 5. **LeaderLedStrategy（B3 验收断言 1–6）**：
 ///    ① 问 A 专业的事 → A 入选、B 不入选；② 不相关且未 @ → 不入选；③ 组长正文 @B → B 必选；
-///    ④ 用户消息 @B → B 必选；⑤ 相关性全员不命中 → 仅组长；⑥ 命中 5 人 + 上限 3 → 恰 3 人；
+///    ④ 用户消息 @B → B 必选；⑤ 相关性全员不命中 → 组长 + 1 位非组长成员；⑥ 命中 5 人 + 上限 3 → 恰 3 人；
 /// 6. **ContextManager.build**：`groupBlocks` 注入（顺序正确）+ 默认空 → 旧行为零变化。
 ///
 /// ⚠️ 静默契约（断言 7：`【不参与】` → step skipped + 消息 cancelled + UI 无气泡）属
@@ -100,6 +100,7 @@ Future<void> main() async {
   _verifyPromptComposer();
   await _verifyLeaderLed();
   _verifyContextManager();
+  _verifyWalkthroughFixes();
 
   stdout.writeln('\n${'=' * 64}');
   stdout.writeln('结果：通过 $_passed ／ 失败 $_failed');
@@ -315,9 +316,13 @@ Future<void> _verifyLeaderLed() async {
   picked = await run('@医生 帮我看下');
   check('断言④ 用户@B → B 必选', picked.contains('B'), 'got=$picked');
 
-  // 断言 ⑤：相关性全员不命中 → 仅组长（不冷场、不全员）。
+  // 断言 ⑤：相关性全员不命中 → 组长 + 相关性最高的一位非组长成员（不冷场、不独角戏）。
+  //    取值推演：三人分数全 0 → rank 同分按 sortOrder 升序 → [L, A, B]；剔除组长后 Top-1 = A。
   picked = await run('今天天气怎么样');
-  check('断言⑤ 全不命中 → 恰仅组长', picked.length == 1 && picked.first == 'L', 'got=$picked');
+  check('断言⑤ 全不命中 → 组长 + 1 位成员（共 2 人）', picked.length == 2, 'got=$picked');
+  check('断言⑤ 组长在列且为首位', picked.contains('L') && picked.first == 'L', 'got=$picked');
+  check('断言⑤ 带上了相关性最高的非组长成员 A', picked.contains('A'), 'got=$picked');
+  check('断言⑤ 未退化全员（未含 B）', !picked.contains('B'), 'got=$picked');
 
   // 断言 ⑥：命中 5 人 + 上限 3 → 恰 3 人（Top-3 相关度）。
   final five = <GroupMember>[
@@ -407,4 +412,53 @@ void _verifyContextManager() {
       systemPrompt: '你是专家', groupBlocks: '【群角色】组长', userTask: '问题', strictGrounding: true);
   final sys3 = withStrict.firstWhere((m) => m.role == ChatRole.system).content;
   check('strict 规则在群块之后', sys3.indexOf('【群角色】') < sys3.indexOf(GroundingResolver.strictSystemRule));
+}
+
+// ---------------------------------------------------------------------------
+// 7. 2026-10-03 走查三缺陷修复（纯逻辑面）：@ 精确匹配 + 成员名单 + 防冒认
+// ---------------------------------------------------------------------------
+
+void _verifyWalkthroughFixes() {
+  section('走查修复：@ 精确匹配 / 成员名单块 / 防冒认纪律');
+
+  // (1) mentionsName：带附加文本可命中；名字前缀不得误吃更长名字。
+  check('「@医生 请说」命中', mentionsName('@医生 请说', '医生'));
+  check('「@医生，请说」命中（标点边界）', mentionsName('@医生，请说', '医生'));
+  check('「@医生」结尾命中', mentionsName('请看 @医生', '医生'));
+  check('「@医生助理」不误命中「医生」', !mentionsName('@医生助理 你好', '医生'));
+  check('名字前后空白不干扰', mentionsName('@ 医生'.replaceAll(' ', ''), ' 医生 '));
+  check('空名 → false', !mentionsName('@x', '   '));
+
+  // (2) memberRosterBlock：完整名单（显示名 + 擅长），无 expertId，本人有标注，空 → 空串。
+  final roster = GroupPromptComposer.memberRosterBlock(_richMembers, selfId: 'A');
+  check('名单含抬头', roster.contains('【群成员名单】'));
+  check('名单含全部显示名',
+      roster.contains('组长') && roster.contains('商务专家') && roster.contains('医生'));
+  check('名单含擅长领域', roster.contains('擅长') && roster.contains('医学'));
+  check('名单标注本人（你本人）', roster.contains('（你本人）'));
+  check('名单不含裸 expertId',
+      !roster.contains('L｜') && !roster.contains('A｜') && !roster.contains('B｜'));
+  checkEq('空成员 → 空串', GroupPromptComposer.memberRosterBlock(const []), '');
+
+  // (3) block() 注入名单；未传名单 → 旧行为零变化（不含名单抬头）。
+  final withRoster = GroupPromptComposer.block(
+      selfName: '商务专家', role: MemberRole.member, leaderName: '组长', memberRoster: _richMembers, selfId: 'A');
+  check('block() 注入成员名单', withRoster.contains('【群成员名单】'));
+  final withoutRoster = GroupPromptComposer.block(
+      selfName: '商务专家', role: MemberRole.member, leaderName: '组长');
+  check('未传名单时不含名单抬头（旧调用零变化）', !withoutRoster.contains('【群成员名单】'));
+
+  // (4) 防冒认纪律：含「不得自称组长 / 不得伪造【】」。
+  check('发言格式纪律含「不得自称组长」',
+      GroupPromptComposer.noSpeakerLabelEchoRule.contains('不得自称组长'));
+  check('发言格式纪律含「不得伪造【】」',
+      GroupPromptComposer.noSpeakerLabelEchoRule.contains('不得伪造【】'));
+
+  // (5) 总结者身份纪律 + 输入不再用【名字】格式。
+  final sMsgs = Summarizer.buildPrompt(userTask: '评审合同', outputs: const [
+    ExpertOutput(expertId: 'L', expertName: '组长', content: '先定分工。'),
+  ]);
+  check('总结者 system 含身份纪律', sMsgs.first.content.contains(kSummarizerIdentityRule));
+  check('总结者输入不再含【组长】格式', !sMsgs.last.content.contains('【组长】'));
+  check('总结者输入用「发言者「组长」：」', sMsgs.last.content.contains('发言者「组长」：'));
 }

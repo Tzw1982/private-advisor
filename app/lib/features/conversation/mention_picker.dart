@@ -9,7 +9,10 @@
 ///
 /// **鼠标选取（走查反馈 #52）**：候选行支持点击选中（与 Enter 完全等价）、
 /// 悬停高亮（[AppColors.sessionSelected]）与手型光标（`SystemMouseCursors.click`）。
-/// 点击径路的三处保障：
+/// **命中保障（实机走查缺陷修复）**：面板整体与两个输入框登记同一
+/// [mentionPickerTapGroup]，点候选行不再触发输入框的 `onTapOutside` 失焦关面板
+/// （否则 `InkWell.onTap` 会在指针抬起前被 dispose 取消，见该常量文档）。
+/// 其余三处保障：
 /// 1. **总高封顶**：面板内联在输入栏 `Column`（非 flex 子节点、无高度上限），
 ///    不封顶会把输入框/发送栏顶出可视区，用户点到的是别的组件 →
 ///    [LayoutBuilder] + [ConstrainedBox] 钳制 [_panelMaxHeight]，候选列表在
@@ -31,6 +34,21 @@ import '../../ui/theme/app_colors.dart';
 import '../../ui/theme/app_dims.dart';
 import '../../ui/widgets/app_card.dart';
 import '../../ui/widgets/expert_avatar.dart';
+
+/// @成员选择器与主输入框共享的 [TapRegion] 分组标识（走查缺陷修复：鼠标点候选行无反应）。
+///
+/// **根因**：Windows 桌面下 `EditableText` 的默认 `onTapOutside` 会对落在输入框之外的
+/// **指针按下**调用 `focusNode.unfocus()`（SDK `editable_text.dart:6802-6805`，
+/// `_EditableTextTapOutsideAction`）。候选行位于输入框之外 → 鼠标按下即让主输入框
+/// （工具栏路径下为过滤框）失焦 → 宿主 `_closeMentionIfFocusLeft` 在帧末关闭面板 →
+/// 面板被移除、行内 `InkWell` 手势随组件 dispose 被取消 → `onTap` 永不触发，
+/// 表现为"鼠标点候选行没反应"；键盘不产生 tap outside，故不受影响。
+///
+/// **修法**：把主输入框、过滤框与整块面板登记到**同一 tap 分组**——分组内任一区域
+/// 被命中时，同组成员的 `onTapOutside` 都不触发（SDK `tap_region.dart:451-457`），
+/// 于是点候选行不再让输入框失焦、面板不被误关，`InkWell.onTap` 正常命中并插入。
+/// 点击面板外部仍按默认失焦 → 面板照常关闭（既有行为不变）。
+final Object mentionPickerTapGroup = Object();
 
 /// 一位可 @ 的候选人。
 class MentionCandidate {
@@ -109,41 +127,49 @@ class _MentionPickerState extends State<MentionPicker> {
     // 高度封顶（走查 #52-1）：父级 Column 为非 flex 子节点，约束 maxHeight 为
     // 无穷；有限时（如未来改挂 overlay / 受外层 SizedBox 约束）再收一档，
     // 取二者的较小值，保证面板永不超过 [_panelMaxHeight]。
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final maxHeight = constraints.maxHeight.isFinite
-            ? math.min(_panelMaxHeight, constraints.maxHeight)
-            : _panelMaxHeight;
-        return ConstrainedBox(
-          constraints: BoxConstraints(maxHeight: maxHeight),
-          child: AppCard(
-            dense: true,
-            margin: const EdgeInsets.only(bottom: AppDims.space2),
-            padding: EdgeInsets.zero,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _filterField(),
-                const Divider(height: 1, color: AppColors.divider),
-                // 候选列表在剩余空间内滚动：少候选时收缩（shrinkWrap），
-                // 多候选时受面板封顶约束而内部滚动。
-                Flexible(
-                  // 透明 Material（走查 #52-2）：给 InkWell 一个**卡片内层**的
-                  // 墨水墨绘目标。缺它时最近 Material 是 Scaffold 根节点，墨水
-                  // 被卡片白底盖住 → 点击无任何视觉反馈。
-                  child: Material(
-                    type: MaterialType.transparency,
-                    child: _list(),
+    //
+    // 外层 [TapRegion]（同一 [mentionPickerTapGroup] 分组）：让"点击面板内部"
+    // 不被输入框视为"点击外部"，从根上消除"鼠标按下即失焦关面板"的竞态。
+    return TapRegion(
+      groupId: mentionPickerTapGroup,
+      // 整块面板矩形都算"内部"（含候选列表的空白间隙），不因空白无子命中而漏注册。
+      behavior: HitTestBehavior.opaque,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final maxHeight = constraints.maxHeight.isFinite
+              ? math.min(_panelMaxHeight, constraints.maxHeight)
+              : _panelMaxHeight;
+          return ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: maxHeight),
+            child: AppCard(
+              dense: true,
+              margin: const EdgeInsets.only(bottom: AppDims.space2),
+              padding: EdgeInsets.zero,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _filterField(),
+                  const Divider(height: 1, color: AppColors.divider),
+                  // 候选列表在剩余空间内滚动：少候选时收缩（shrinkWrap），
+                  // 多候选时受面板封顶约束而内部滚动。
+                  Flexible(
+                    // 透明 Material（走查 #52-2）：给 InkWell 一个**卡片内层**的
+                    // 墨水墨绘目标。缺它时最近 Material 是 Scaffold 根节点，墨水
+                    // 被卡片白底盖住 → 点击无任何视觉反馈。
+                    child: Material(
+                      type: MaterialType.transparency,
+                      child: _list(),
+                    ),
                   ),
-                ),
-                const Divider(height: 1, color: AppColors.divider),
-                _footer(),
-              ],
+                  const Divider(height: 1, color: AppColors.divider),
+                  _footer(),
+                ],
+              ),
             ),
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 
@@ -154,6 +180,9 @@ class _MentionPickerState extends State<MentionPicker> {
       child: TextField(
         controller: widget.filterController,
         focusNode: widget.filterFocus,
+        // 与主输入框、整块面板同一 tap 分组：点过滤框/候选行都不会被判定为
+        // "点击输入框外部"（见 [mentionPickerTapGroup]）。
+        groupId: mentionPickerTapGroup,
         onChanged: widget.onFilterChanged,
         // 面板内输入不再触发发送（Enter 只用于确认选中）。
         textInputAction: TextInputAction.none,

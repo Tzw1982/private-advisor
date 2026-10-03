@@ -300,13 +300,20 @@ Future<void> _t_leaderLed() async {
       note: 'speakers=${d3.primarySpeakers}');
   t('D3b', '兜底未触发：不止组长一人', true, d3.primarySpeakers.length >= 2);
 
-  // D4 不冷场兜底：无 @ 且全员不相关 → 仅组长
-  //    注：用于触发兜底的文本必须与**所有**标签 token 无交集。此前用「今天天气不错适合钓鱼」
+  // D4 不冷场兜底：无 @ 且全员不相关 → 组长 + 相关性最高的一位非组长成员
+  //    注 1：用于触发兜底的文本必须与**所有**标签 token 无交集。此前用「今天天气不错适合钓鱼」
   //    因含「合」与「合同法」重合而被正确判为相关（实现无误，是测试用例选词不当）。
+  //    注 2：契约变更（2026-10-04 用户走查）——原契约「零命中 → 仅组长」被用户实测否定：
+  //    「选择组长主持后其它成员都不发言，哪怕是我提示的情况下」= 组长独角戏，与"主持"语义不符。
+  //    新契约：零命中时组长 + 相关性 Top-1 非组长（同分按 sortOrder 升序 → 张工），既不冷场，
+  //    也不退化全员；maxSpeakers ≤ 1 时仍可退化为仅组长（配置语义，见 D6）。
   final d4 = await LeaderLedStrategy(maxSpeakers: 3)
       .selectNextSpeakers(_ctx('今天天气真好啊'));
-  t('D4', '全员不相关 → 仅组长（不冷场、不退化全员）', 'eL', d4.primarySpeakers.join(','));
-  t('D4b', '且未退化全员（长度=1）', 1, d4.primarySpeakers.length);
+  t('D4', '全员不相关 → 组长 + Top-1 非组长（不冷场、不独角戏）', 'eL,eM1', d4.primarySpeakers.join(','));
+  t('D4b', '且未退化全员（长度=2）', 2, d4.primarySpeakers.length);
+  t('D4c', '兜底仍以组长领头', 'eL', d4.primarySpeakers.first);
+  t('D4d', '说明理由不再是"仅组长"', false,
+      d4.rationale.contains('仅组长'), note: 'rationale=${d4.rationale}');
 
   // D5 maxSpeakers=1 时 @必选优先于组长占位
   final d5 = await LeaderLedStrategy(maxSpeakers: 1)

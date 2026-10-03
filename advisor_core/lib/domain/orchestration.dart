@@ -360,6 +360,15 @@ class SummaryResult {
   }
 }
 
+/// 总结者**身份纪律**（2026-10-03 走查修复 · 根因「其它成员冒认组长」）。
+///
+/// 总结提示词的 system 此前只有「你是严谨的讨论主持人，只输出 JSON」，**未携带**
+/// 群聊里那条「不得自称他人」的发言格式纪律（见 `GroupPromptComposer.noSpeakerLabelEchoRule`），
+/// 总结者因此可能把某位成员的发言当成"组长发的"、或在结论里冒用他人身份/伪造 `【】` 标注。
+/// 本常量补上该约束；与群成员提示词同口径、且不破坏「只输出 JSON」这一调用识别标记。
+const String kSummarizerIdentityRule =
+    '只归纳各发言者的观点，不要冒充任何专家或组长发言，不要以【】标注姓名或编号，不要替他人署名。';
+
 /// 总结者端口（LLM 调用由 application 层实现）。
 abstract interface class Summarizer {
   /// 构造总结提示词。
@@ -375,7 +384,9 @@ abstract interface class Summarizer {
       ..writeln('各专家发言：');
     for (final o in outputs) {
       if (o.skipped) continue;
-      b.writeln('【${o.expertName}】${o.content}');
+      // 用「发言者「名字」：正文」而非「【名字】正文」——`【】` 正是模型会模仿并
+      // 冒领身份的安全隐患格式（第 8 轮根因）。总结者只做归纳，不需要该格式。
+      b.writeln('发言者「${o.expertName}」：${o.content}');
       b.writeln();
     }
     b
@@ -383,7 +394,7 @@ abstract interface class Summarizer {
       ..writeln('{"consensus":[],"disagreements":[],"recommendations":[],"open_questions":[]}');
 
     return [
-      ChatMessage(ChatRole.system, '你是严谨的讨论主持人，只输出 JSON。'),
+      ChatMessage(ChatRole.system, '你是严谨的讨论主持人，只输出 JSON。$kSummarizerIdentityRule'),
       ChatMessage(ChatRole.user, b.toString()),
     ];
   }
